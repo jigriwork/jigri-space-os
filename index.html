@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="description" content="LUMA — A Living Emotional Universe. Reflect. Release. Watch your universe evolve." />
+  <meta name="theme-color" content="#050510" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="LUMA" />
+  <link rel="icon" type="image/svg+xml" href="/icons/favicon.svg" />
+  <link rel="apple-touch-icon" href="/icons/icon-192.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Outfit:wght@200;300;400;500;600;700&display=swap" rel="stylesheet" />
+  <title>LUMA — A Living Emotional Universe</title>
+</head>
+<body>
+  <!-- INTRO / LOADING SCREEN -->
+  <div id="intro-screen">
+    <div id="intro-particles"></div>
+    <div id="intro-content">
+      <div id="intro-singularity"></div>
+      <h1 id="intro-title">LUMA</h1>
+      <p id="intro-subtitle">A living universe shaped by your inner world.</p>
+      <button id="intro-enter" aria-label="Enter the universe">
+        <span>Enter Your Universe</span>
+        <div class="btn-glow"></div>
+      </button>
+    </div>
+  </div>
+
+  <!-- MAIN UNIVERSE -->
+  <div id="luma-app" class="hidden">
+    <!-- Canvas layers -->
+    <canvas id="bg-canvas" aria-hidden="true"></canvas>
+    <canvas id="main-canvas" aria-hidden="true"></canvas>
+    <canvas id="fx-canvas" aria-hidden="true"></canvas>
+
+    <!-- Top bar -->
+    <header id="top-bar">
+      <div id="logo-mark">
+        <div class="logo-orb"></div>
+        <span>LUMA</span>
+      </div>
+      <div id="universe-age">
+        <span class="label">Streak</span>
+        <span id="streak-value" class="value">0 days</span>
+      </div>
+      <div class="top-bar-actions">
+        <button id="btn-memory" aria-label="Toggle Memory Layer" title="Memory Timeline">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+        </button>
+        <button id="btn-stats" aria-label="Toggle Statistics Panel" title="Insights">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M18 20V10M12 20V4M6 20v-6"/>
+          </svg>
+        </button>
+      </div>
+    </header>
+
+    <!-- Insights Dashboard -->
+    <aside id="stats-panel" class="panel hidden">
+      <h2>Emotional Insights</h2>
+      <div class="stat-grid">
+        <div class="stat-item full">
+          <span class="stat-label">Dominant Tone</span>
+          <span id="stat-emotion" class="stat-value emotion-txt">Void</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label">Total Entries</span>
+          <span id="stat-thoughts" class="stat-value">0</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label">Calm/Stress Ratio</span>
+          <span id="stat-ratio" class="stat-value">N/A</span>
+        </div>
+        <div class="stat-item full" id="top-tags-container">
+          <span class="stat-label">Top Tags</span>
+          <div id="stat-tags" class="tags-list"></div>
+        </div>
+      </div>
+      <div id="insight-reflection">
+        <ul id="thought-list"></ul>
+      </div>
+      </div>
+    </aside>
+
+    <!-- Memory Timeline Layer -->
+    <aside id="memory-timeline" class="panel hidden">
+      <h2>Emotional Memory</h2>
+      <div class="reflection-note">
+        <p id="memory-main-reflection">No recent patterns identified.</p>
+      </div>
+      <ul id="memory-list"></ul>
+    </aside>
+
+    <!-- Controls -->
+    <aside id="controls-panel">
+      <!-- Hidden time controls for MVP to keep it clean, but kept if needed -->
+      <!-- <button id="btn-time" class="ctrl-btn" title="Time Control" aria-label="Toggle time controls"> ... </button> -->
+      <button id="btn-music" class="ctrl-btn active" title="Toggle Music" aria-label="Toggle music">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>
+        </svg>
+      </button>
+      <button id="btn-trails" class="ctrl-btn active" title="Toggle Trails" aria-label="Toggle particle trails">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M2 12c2-4 6-7 10-7s8 3 10 7c-2 4-6 7-10 7s-8-3-10-7z"/><circle cx="12" cy="12" r="3"/>
+        </svg>
+      </button>
+      <button id="btn-screenshot" class="ctrl-btn" title="Capture Universe" aria-label="Take screenshot">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="12" cy="12" r="3"/><path d="M3 9h2M19 9h2"/>
+        </svg>
+      </button>
+      <button id="btn-reset" class="ctrl-btn" title="Reset Universe" aria-label="Reset universe">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M1 4v6h6"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/>
+        </svg>
+      </button>
+    </aside>
+
+      <!-- Removed Time Control Panel for clean MVP -->
+    </div>
+
+    <!-- Entity creation notification -->
+    <div id="creation-notify" class="hidden">
+      <div id="notify-icon"></div>
+      <div id="notify-text">
+        <span id="notify-type"></span>
+        <span id="notify-name"></span>
+      </div>
+    </div>
+
+    <!-- Daily Pulse / Main Action -->
+    <div id="bottom-action-container">
+      <div id="daily-pulse" class="fade-in">
+        <p id="daily-pulse-text">Your universe is quiet today.</p>
+      </div>
+      <button id="btn-open-checkin" aria-label="Open Check-In">
+        <div class="pulse-ring"></div>
+        <span>Record a Thought</span>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M12 5v14M5 12h14" />
+        </svg>
+      </button>
+    </div>
+
+    <!-- Check-In Modal Flow -->
+    <div id="checkin-modal" class="hidden">
+      <div class="modal-backdrop"></div>
+      <div class="modal-content">
+        <button id="btn-close-checkin" aria-label="Close Check-In">×</button>
+        <h2>Inner Check-In</h2>
+        <p class="subtitle">What is shaping your universe right now?</p>
+        
+        <textarea id="thought-input" placeholder="A brief thought or feeling..." spellcheck="false" autocomplete="off"></textarea>
+        
+        <div class="checkin-section">
+          <h3>Intensity</h3>
+          <input type="range" id="intensity-slider" min="1" max="3" value="2" step="1" />
+          <div class="slider-labels">
+            <span>Light</span>
+            <span>Medium</span>
+            <span>Heavy</span>
+          </div>
+        </div>
+
+        <div class="checkin-section">
+          <h3>Themes (Optional)</h3>
+          <div id="tags-grid" class="tags-grid">
+            <button class="tag-btn" data-tag="Work">Work</button>
+            <button class="tag-btn" data-tag="Love">Love</button>
+            <button class="tag-btn" data-tag="Stress">Stress</button>
+            <button class="tag-btn" data-tag="Hope">Hope</button>
+            <button class="tag-btn" data-tag="Fear">Fear</button>
+            <button class="tag-btn" data-tag="Family">Family</button>
+            <button class="tag-btn" data-tag="Ambition">Ambition</button>
+            <button class="tag-btn" data-tag="Health">Health</button>
+            <button class="tag-btn" data-tag="Gratitude">Gratitude</button>
+            <button class="tag-btn" data-tag="Confusion">Confusion</button>
+          </div>
+        </div>
+
+        <button id="thought-submit" class="primary-btn">
+          <span>Release to Universe</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Floating thought text (appears when creating) -->
+    <div id="floating-thought" class="hidden" aria-hidden="true"></div>
+  </div>
+
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>

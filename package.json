@@ -1,0 +1,15 @@
+{
+  "name": "luma-app",
+  "private": true,
+  "version": "1.0.0",
+  "description": "LUMA — A Living Emotional Universe. Your thoughts become patterns. Your patterns become a universe.",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "devDependencies": {
+    "vite": "^6.0.0",
+    "vite-plugin-pwa": "^0.21.0"
+  }
+}
