@@ -10,8 +10,23 @@ const NOTE_FREQUENCIES = {
   'C5': 523.25, 'D5': 587.33, 'E5': 659.25, 'F5': 698.46, 'G5': 783.99, 'A5': 880.0, 'B5': 987.77,
 };
 
-const AMBIENT_NOTES = ['C3', 'E3', 'G3', 'B3', 'C4', 'E4', 'G4'];
-const PAD_NOTES = ['C2', 'G2', 'C3'];
+const AMBIENT_MODES = [
+  {
+    pad: ['C2', 'G2', 'C3'],
+    melody: ['C3', 'E3', 'G3', 'B3', 'C4', 'E4', 'G4'],
+    name: 'neutral'
+  },
+  {
+    pad: ['D2', 'A2', 'D3'],
+    melody: ['D3', 'F3', 'A3', 'C4', 'D4', 'F4', 'A4'],
+    name: 'deep'
+  },
+  {
+    pad: ['E2', 'B2', 'E3'],
+    melody: ['E3', 'G3', 'B3', 'D4', 'E4', 'G4', 'B4'],
+    name: 'lift'
+  }
+];
 
 export class AudioEngine {
   constructor() {
@@ -21,7 +36,15 @@ export class AudioEngine {
     this.isPlaying = false;
     this.ambientInterval = null;
     this.padOscillators = [];
+    this.activeMelodyVoices = [];
     this.initialized = false;
+    this.modeIndex = 0;
+    this.modeTimer = null;
+    this.volumePresets = [0.4, 0.58, 0.75];
+    this.volumePresetIndex = 1;
+    this.currentEmotion = 'stress';
+    this.currentIntensity = 0.6;
+    this.melodyIntervalMs = 2600;
   }
 
   async init() {
@@ -31,7 +54,7 @@ export class AudioEngine {
 
     // Master gain
     this.masterGain = this.ctx.createGain();
-    this.masterGain.gain.value = 0.3;
+    this.masterGain.gain.value = this.volumePresets[this.volumePresetIndex];
 
     // Create reverb
     this.reverbNode = await this._createReverb();
@@ -71,6 +94,8 @@ export class AudioEngine {
     if (this.isPlaying || !this.initialized) return;
     this.isPlaying = true;
 
+    this.modeIndex = Math.floor(Math.random() * AMBIENT_MODES.length);
+
     // Start pad drones
     this._startPads();
 
@@ -78,11 +103,18 @@ export class AudioEngine {
     this._playAmbientNote();
     this.ambientInterval = setInterval(() => {
       if (this.isPlaying) this._playAmbientNote();
-    }, 3000 + Math.random() * 4000);
+    }, this.melodyIntervalMs);
+
+    // Rotate ambient mode for more musical variation
+    this.modeTimer = setInterval(() => {
+      if (!this.isPlaying) return;
+      this._rotateMode();
+    }, 24000);
   }
 
   _startPads() {
-    PAD_NOTES.forEach((note, i) => {
+    const mode = AMBIENT_MODES[this.modeIndex];
+    mode.pad.forEach((note, i) => {
       const osc = this.ctx.createOscillator();
       const gain = this.ctx.createGain();
       const filter = this.ctx.createBiquadFilter();
@@ -95,7 +127,7 @@ export class AudioEngine {
       filter.Q.value = 1;
 
       gain.gain.value = 0;
-      gain.gain.linearRampToValueAtTime(0.08, this.ctx.currentTime + 3);
+      gain.gain.linearRampToValueAtTime(0.12, this.ctx.currentTime + 2.3);
 
       osc.connect(filter);
       filter.connect(gain);
@@ -120,23 +152,25 @@ export class AudioEngine {
   _playAmbientNote() {
     if (!this.isPlaying || !this.ctx) return;
 
-    const note = AMBIENT_NOTES[Math.floor(Math.random() * AMBIENT_NOTES.length)];
+    const mode = AMBIENT_MODES[this.modeIndex];
+    const note = mode.melody[Math.floor(Math.random() * mode.melody.length)];
     const freq = NOTE_FREQUENCIES[note];
     const now = this.ctx.currentTime;
-    const duration = 2 + Math.random() * 3;
+    const duration = 1.2 + Math.random() * 2.2;
 
     const osc = this.ctx.createOscillator();
     const gain = this.ctx.createGain();
     const filter = this.ctx.createBiquadFilter();
 
-    osc.type = Math.random() > 0.5 ? 'sine' : 'triangle';
+    osc.type = Math.random() > 0.4 ? 'sine' : (Math.random() > 0.5 ? 'triangle' : 'sawtooth');
     osc.frequency.value = freq;
 
     filter.type = 'lowpass';
-    filter.frequency.value = 800 + Math.random() * 600;
+    filter.frequency.value = 620 + Math.random() * 780;
 
     gain.gain.value = 0;
-    gain.gain.linearRampToValueAtTime(0.06 + Math.random() * 0.04, now + 0.5);
+    const emotionBoost = this.currentEmotion === 'anger' || this.currentEmotion === 'stress' ? 0.03 : 0;
+    gain.gain.linearRampToValueAtTime(0.07 + Math.random() * 0.06 + emotionBoost, now + 0.3);
     gain.gain.linearRampToValueAtTime(0, now + duration);
 
     osc.connect(filter);
@@ -145,6 +179,86 @@ export class AudioEngine {
 
     osc.start(now);
     osc.stop(now + duration);
+    this.activeMelodyVoices.push(osc);
+
+    // Occasional shimmer harmony note
+    if (Math.random() > 0.62) {
+      const harmony = this.ctx.createOscillator();
+      const hGain = this.ctx.createGain();
+      harmony.type = 'sine';
+      harmony.frequency.value = freq * (Math.random() > 0.5 ? 1.5 : 2);
+      hGain.gain.value = 0;
+      hGain.gain.linearRampToValueAtTime(0.028, now + 0.2);
+      hGain.gain.linearRampToValueAtTime(0, now + duration * 0.9);
+      harmony.connect(hGain);
+      hGain.connect(this.wetGain);
+      harmony.start(now);
+      harmony.stop(now + duration * 0.9);
+    }
+  }
+
+  _rotateMode() {
+    this.modeIndex = (this.modeIndex + 1) % AMBIENT_MODES.length;
+    const now = this.ctx.currentTime;
+
+    this.padOscillators.forEach(({ osc, gain, lfo }) => {
+      try {
+        gain.gain.linearRampToValueAtTime(0, now + 0.8);
+        setTimeout(() => {
+          try {
+            osc.stop();
+            lfo.stop();
+          } catch (e) { }
+        }, 1100);
+      } catch (e) { }
+    });
+    this.padOscillators = [];
+    this._startPads();
+  }
+
+  setEmotionState(emotion = 'stress', intensity = 0.6) {
+    this.currentEmotion = emotion;
+    this.currentIntensity = Math.max(0.2, Math.min(1, intensity));
+
+    const moodToMode = {
+      fear: 1,
+      sadness: 1,
+      confusion: 0,
+      stress: 2,
+      anger: 2
+    };
+    this.modeIndex = moodToMode[emotion] ?? 0;
+
+    const fast = emotion === 'anger' || emotion === 'stress';
+    const slower = emotion === 'fear' || emotion === 'sadness';
+    this.melodyIntervalMs = fast
+      ? 1500 + (1 - this.currentIntensity) * 900
+      : slower
+        ? 2800 + (1 - this.currentIntensity) * 1300
+        : 2100 + (1 - this.currentIntensity) * 1200;
+
+    if (this.isPlaying) {
+      if (this.ambientInterval) clearInterval(this.ambientInterval);
+      this.ambientInterval = setInterval(() => {
+        if (this.isPlaying) this._playAmbientNote();
+      }, this.melodyIntervalMs);
+      this._rotateMode();
+    }
+  }
+
+  cycleMode() {
+    this.modeIndex = (this.modeIndex + 1) % AMBIENT_MODES.length;
+    if (this.isPlaying) {
+      this._rotateMode();
+    }
+    return AMBIENT_MODES[this.modeIndex].name;
+  }
+
+  cycleVolumePreset() {
+    this.volumePresetIndex = (this.volumePresetIndex + 1) % this.volumePresets.length;
+    const value = this.volumePresets[this.volumePresetIndex];
+    this.setVolume(value);
+    return { value, level: this.volumePresetIndex };
   }
 
   /**
@@ -225,11 +339,21 @@ export class AudioEngine {
       this.ambientInterval = null;
     }
 
+    if (this.modeTimer) {
+      clearInterval(this.modeTimer);
+      this.modeTimer = null;
+    }
+
+    this.activeMelodyVoices.forEach((osc) => {
+      try { osc.stop(); } catch (e) { }
+    });
+    this.activeMelodyVoices = [];
+
     const now = this.ctx?.currentTime || 0;
     this.padOscillators.forEach(({ osc, gain, lfo }) => {
       gain.gain.linearRampToValueAtTime(0, now + 1);
       setTimeout(() => {
-        try { osc.stop(); lfo.stop(); } catch (e) {}
+        try { osc.stop(); lfo.stop(); } catch (e) { }
       }, 1500);
     });
     this.padOscillators = [];
