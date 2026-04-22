@@ -1,10 +1,20 @@
 export default class AIProvider {
   /**
-   * Defuse a raw thought into cognitive separation output.
+   * Classify the user's thought into runtime mode.
+   * @param {string} text
+   * @returns {'negative'|'anger'|'confusion'|'positive'}
+   */
+  detectThoughtType(text) {
+    throw new Error('Not implemented');
+  }
+
+  /**
+   * Generate a short mode-aware response.
    * @param {string} userText
+   * @param {'negative'|'anger'|'confusion'|'positive'} thoughtType
    * @returns {Promise<string>}
    */
-  async defuse(userText) {
+  async defuse(userText, thoughtType = 'negative') {
     throw new Error('Not implemented');
   }
 

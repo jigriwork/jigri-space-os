@@ -20,12 +20,22 @@
 </head>
 
 <body>
-  <div id="luma-app">
+  <section id="home-screen">
+    <div id="home-stars" aria-hidden="true"></div>
+    <div id="home-content">
+      <h1>Get out of your head.</h1>
+      <h2>In under 60 seconds.</h2>
+      <p>When your thoughts spiral, don’t fight them. Watch them lose power.</p>
+      <button id="home-cta" aria-label="Start LUMA">Try it now</button>
+    </div>
+  </section>
+
+  <div id="luma-app" class="hidden">
     <canvas id="bg-canvas" aria-hidden="true"></canvas>
     <canvas id="main-canvas" aria-hidden="true"></canvas>
     <canvas id="fx-canvas" aria-hidden="true"></canvas>
 
-    <header id="app-title" aria-hidden="true">
+    <header id="app-title">
       <h1>LUMA</h1>
       <p>Defuse the thought in under 60 seconds</p>
     </header>

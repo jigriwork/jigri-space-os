@@ -4,6 +4,11 @@ import { AudioEngine } from './AudioEngine.js';
 import { StorageEngine } from './StorageEngine.js';
 import GeminiProvider from './ai/GeminiProvider.js';
 
+const homeScreen = document.getElementById('home-screen');
+const homeStars = document.getElementById('home-stars');
+const homeCTA = document.getElementById('home-cta');
+const lumaApp = document.getElementById('luma-app');
+
 const bgCanvas = document.getElementById('bg-canvas');
 const mainCanvas = document.getElementById('main-canvas');
 const fxCanvas = document.getElementById('fx-canvas');
@@ -26,6 +31,21 @@ const ai = new GeminiProvider();
 const storage = new StorageEngine();
 
 let isProcessing = false;
+let appStarted = false;
+
+function createHomeStars() {
+    if (!homeStars) return;
+    for (let i = 0; i < 90; i++) {
+        const s = document.createElement('span');
+        s.className = 'home-star';
+        s.style.left = `${Math.random() * 100}%`;
+        s.style.top = `${Math.random() * 100}%`;
+        s.style.animationDelay = `${Math.random() * 4.5}s`;
+        s.style.animationDuration = `${3.5 + Math.random() * 6}s`;
+        s.style.opacity = `${0.2 + Math.random() * 0.8}`;
+        homeStars.appendChild(s);
+    }
+}
 
 function loop() {
     universe.update();
@@ -33,6 +53,9 @@ function loop() {
 }
 
 async function init() {
+    if (appStarted) return;
+    appStarted = true;
+
     await audio.init();
     audio.startAmbient();
     btnMusic.classList.add('active');
@@ -69,6 +92,7 @@ async function releaseThought() {
     isProcessing = true;
     const startedAt = performance.now();
 
+    const thoughtType = ai.detectThoughtType(userText);
     const emotion = ai.detectEmotion(userText);
     const intensity = ai.estimateIntensity(userText);
     audio.setEmotionState(emotion, intensity);
@@ -79,6 +103,7 @@ async function releaseThought() {
         text: userText,
         emotion,
         intensity,
+        thoughtType,
         timestamp: Date.now()
     });
 
@@ -87,7 +112,7 @@ async function releaseThought() {
         audioNote: emotion === 'fear' ? 'D3' : emotion === 'anger' ? 'E3' : 'C4'
     });
 
-    const aiPromise = ai.defuse(userText);
+    const aiPromise = ai.defuse(userText, thoughtType);
 
     breathingGuide.classList.remove('hidden');
     await sleep(3800);
@@ -101,6 +126,9 @@ async function releaseThought() {
     await sleep(5200);
 
     defusionPanel.classList.add('hidden');
+    const endLabel = thoughtType === 'positive' ? 'State anchored.' : 'Thought released.';
+    const sessionEndText = document.getElementById('session-end-text');
+    if (sessionEndText) sessionEndText.textContent = endLabel;
     sessionEnd.classList.remove('hidden');
     await sleep(1600);
     sessionEnd.classList.add('hidden');
@@ -151,6 +179,15 @@ btnMode?.addEventListener('click', () => {
     }, 700);
 });
 
+homeCTA?.addEventListener('click', async () => {
+    homeScreen.classList.add('fade-out');
+    setTimeout(() => {
+        homeScreen.classList.add('hidden');
+        lumaApp.classList.remove('hidden');
+        init();
+    }, 540);
+});
+
 mainCanvas?.addEventListener('contextmenu', (e) => e.preventDefault());
 
-init();
+createHomeStars();

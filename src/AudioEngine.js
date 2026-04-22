@@ -25,6 +25,21 @@ const AMBIENT_MODES = [
     pad: ['E2', 'B2', 'E3'],
     melody: ['E3', 'G3', 'B3', 'D4', 'E4', 'G4', 'B4'],
     name: 'lift'
+  },
+  {
+    pad: ['A1', 'E2', 'A2'],
+    melody: ['A2', 'C3', 'E3', 'G3', 'A3', 'C4', 'E4'],
+    name: 'night'
+  },
+  {
+    pad: ['F2', 'C3', 'F3'],
+    melody: ['F3', 'A3', 'C4', 'E4', 'F4', 'A4', 'C5'],
+    name: 'warm'
+  },
+  {
+    pad: ['G2', 'D3', 'G3'],
+    melody: ['G3', 'A3', 'B3', 'D4', 'E4', 'G4', 'A4'],
+    name: 'drift'
   }
 ];
 
@@ -194,6 +209,31 @@ export class AudioEngine {
       hGain.connect(this.wetGain);
       harmony.start(now);
       harmony.stop(now + duration * 0.9);
+    }
+
+    // Sparse secondary note for richer ambient motion
+    if (Math.random() > 0.78) {
+      const note2 = mode.melody[Math.floor(Math.random() * mode.melody.length)];
+      const freq2 = NOTE_FREQUENCIES[note2] * (Math.random() > 0.5 ? 0.5 : 1);
+      const osc2 = this.ctx.createOscillator();
+      const gain2 = this.ctx.createGain();
+      const filter2 = this.ctx.createBiquadFilter();
+
+      osc2.type = 'triangle';
+      osc2.frequency.value = freq2;
+      filter2.type = 'lowpass';
+      filter2.frequency.value = 520 + Math.random() * 520;
+
+      gain2.gain.value = 0;
+      gain2.gain.linearRampToValueAtTime(0.028, now + 0.22);
+      gain2.gain.linearRampToValueAtTime(0, now + duration * 0.75);
+
+      osc2.connect(filter2);
+      filter2.connect(gain2);
+      gain2.connect(this.wetGain);
+
+      osc2.start(now + 0.07);
+      osc2.stop(now + duration * 0.75);
     }
   }
 

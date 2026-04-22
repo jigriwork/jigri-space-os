@@ -1,11 +1,12 @@
 class ThoughtEntity {
-    constructor({ x, y, emotion, intensity, text, memory = false }) {
+    constructor({ x, y, emotion, intensity, text, thoughtType = 'negative', memory = false }) {
         this.id = Math.random().toString(36).slice(2, 10);
         this.x = x;
         this.y = y;
         this.vx = 0;
         this.vy = 0;
         this.emotion = emotion;
+        this.thoughtType = thoughtType;
         this.intensity = intensity;
         this.text = text;
         this.memory = memory;
@@ -21,6 +22,7 @@ class ThoughtEntity {
         this.spin = (Math.random() - 0.5) * 0.04;
         this.phase = Math.random() * Math.PI * 2;
         this.defusing = false;
+        this.orbitRadius = 80 + Math.random() * 120;
     }
 }
 
@@ -76,6 +78,7 @@ export class Universe {
 
     _emotionColor(emotion) {
         const colors = {
+            calm: { h: 150, s: 52, l: 56 },
             stress: { h: 24, s: 96, l: 56 },
             anger: { h: 2, s: 88, l: 54 },
             fear: { h: 265, s: 78, l: 45 },
@@ -122,7 +125,13 @@ export class Universe {
         entity.vx *= 0.985;
         entity.vy *= 0.985;
 
-        if (entity.emotion === 'fear') {
+        if (entity.thoughtType === 'positive') {
+            const settle = 0.012;
+            entity.vx += nx * settle;
+            entity.vy += ny * settle;
+            entity.vx *= 0.97;
+            entity.vy *= 0.97;
+        } else if (entity.emotion === 'fear') {
             // Heavy gravity pull toward center
             const grav = 0.08 + entity.intensity * 0.09;
             entity.vx += nx * grav;
@@ -225,12 +234,13 @@ export class Universe {
         this._renderOverlay();
     }
 
-    addDefusionEntity({ text, emotion, intensity, timestamp }) {
+    addDefusionEntity({ text, emotion, intensity, thoughtType = 'negative', timestamp }) {
         const entity = new ThoughtEntity({
             x: this.width * 0.5,
             y: this.height * 0.45,
             emotion,
             intensity,
+            thoughtType,
             text,
             timestamp
         });
@@ -245,8 +255,8 @@ export class Universe {
         entity.defusing = true;
         const startRadius = entity.radius;
         const startAlpha = entity.alpha;
-        const targetRadius = Math.max(10, startRadius * 0.18);
-        const targetAlpha = 0.22;
+        const targetRadius = Math.max(10, startRadius * (entity.thoughtType === 'positive' ? 1.15 : 0.18));
+        const targetAlpha = entity.thoughtType === 'positive' ? 0.34 : 0.22;
         const cx = this.width * 0.5;
         const cy = this.height * 0.45;
         const dx = entity.x - cx;
@@ -262,20 +272,58 @@ export class Universe {
                 const t = Math.min(1, frame / durationFrames);
                 const eased = t * t * (3 - 2 * t);
 
-                entity.targetRadius = startRadius + (targetRadius - startRadius) * eased;
-                entity.targetAlpha = startAlpha + (targetAlpha - startAlpha) * eased;
-                entity.vx *= 0.92;
-                entity.vy *= 0.92;
-                entity.x = entity.x + (cx + outX - entity.x) * 0.008;
-                entity.y = entity.y + (cy + outY - entity.y) * 0.008;
+                if (entity.thoughtType === 'anger') {
+                    // explosive -> slow collapse
+                    entity.targetRadius = startRadius + (Math.max(8, startRadius * 0.16) - startRadius) * eased;
+                    entity.targetAlpha = startAlpha + (0.2 - startAlpha) * eased;
+                    entity.vx += (Math.random() - 0.5) * (0.06 * (1 - eased));
+                    entity.vy += (Math.random() - 0.5) * (0.06 * (1 - eased));
+                    entity.vx *= 0.9;
+                    entity.vy *= 0.9;
+                    entity.x = entity.x + (cx + outX * 0.7 - entity.x) * 0.01;
+                    entity.y = entity.y + (cy + outY * 0.7 - entity.y) * 0.01;
+                } else if (entity.thoughtType === 'confusion') {
+                    // scattered -> aligned orbit
+                    const orbitAngle = entity.phase + eased * Math.PI * 2;
+                    const orbitX = cx + Math.cos(orbitAngle) * entity.orbitRadius;
+                    const orbitY = cy + Math.sin(orbitAngle) * (entity.orbitRadius * 0.55);
+                    entity.targetRadius = startRadius + (Math.max(10, startRadius * 0.22) - startRadius) * eased;
+                    entity.targetAlpha = startAlpha + (0.24 - startAlpha) * eased;
+                    entity.vx *= 0.9;
+                    entity.vy *= 0.9;
+                    entity.x = entity.x + (orbitX - entity.x) * 0.02;
+                    entity.y = entity.y + (orbitY - entity.y) * 0.02;
+                } else if (entity.thoughtType === 'positive') {
+                    // stable glow -> slight expansion
+                    entity.targetRadius = startRadius + (targetRadius - startRadius) * eased;
+                    entity.targetAlpha = startAlpha + (targetAlpha - startAlpha) * eased;
+                    entity.vx *= 0.95;
+                    entity.vy *= 0.95;
+                    entity.x = entity.x + (cx - entity.x) * 0.006;
+                    entity.y = entity.y + (cy - entity.y) * 0.006;
+                } else {
+                    // negative default: chaotic -> calming
+                    entity.targetRadius = startRadius + (targetRadius - startRadius) * eased;
+                    entity.targetAlpha = startAlpha + (targetAlpha - startAlpha) * eased;
+                    entity.vx *= 0.92;
+                    entity.vy *= 0.92;
+                    entity.x = entity.x + (cx + outX - entity.x) * 0.008;
+                    entity.y = entity.y + (cy + outY - entity.y) * 0.008;
+                }
 
                 if (t >= 1) {
                     clearInterval(timer);
                     entity.memory = true;
                     entity.defusing = false;
-                    entity.intensity = Math.min(0.18, entity.intensity * 0.2);
-                    entity.targetRadius = Math.max(8, entity.targetRadius);
-                    entity.targetAlpha = 0.14;
+                    if (entity.thoughtType === 'positive') {
+                        entity.intensity = Math.min(0.35, entity.intensity * 0.7 + 0.08);
+                        entity.targetRadius = Math.max(14, entity.targetRadius);
+                        entity.targetAlpha = 0.2;
+                    } else {
+                        entity.intensity = Math.min(0.18, entity.intensity * 0.2);
+                        entity.targetRadius = Math.max(8, entity.targetRadius);
+                        entity.targetAlpha = 0.14;
+                    }
                     resolve();
                 }
             }, 16);

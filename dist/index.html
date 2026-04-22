@@ -17,17 +17,27 @@
     href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Outfit:wght@200;300;400;500;600;700&display=swap"
     rel="stylesheet" />
   <title>LUMA — Cognitive Defusion Engine</title>
-  <script type="module" crossorigin src="/assets/index-BeUGUOND.js"></script>
-  <link rel="stylesheet" crossorigin href="/assets/index-B8OeYv7I.css">
+  <script type="module" crossorigin src="/assets/index-Ksl-10Kj.js"></script>
+  <link rel="stylesheet" crossorigin href="/assets/index-Dep81YQ3.css">
 <link rel="manifest" href="/manifest.webmanifest"><script id="vite-plugin-pwa:register-sw" src="/registerSW.js"></script></head>
 
 <body>
-  <div id="luma-app">
+  <section id="home-screen">
+    <div id="home-stars" aria-hidden="true"></div>
+    <div id="home-content">
+      <h1>Get out of your head.</h1>
+      <h2>In under 60 seconds.</h2>
+      <p>When your thoughts spiral, don’t fight them. Watch them lose power.</p>
+      <button id="home-cta" aria-label="Start LUMA">Try it now</button>
+    </div>
+  </section>
+
+  <div id="luma-app" class="hidden">
     <canvas id="bg-canvas" aria-hidden="true"></canvas>
     <canvas id="main-canvas" aria-hidden="true"></canvas>
     <canvas id="fx-canvas" aria-hidden="true"></canvas>
 
-    <header id="app-title" aria-hidden="true">
+    <header id="app-title">
       <h1>LUMA</h1>
       <p>Defuse the thought in under 60 seconds</p>
     </header>
