@@ -1,4 +1,4 @@
-const STORAGE_KEY = 'luma_defusion_memory';
+const STORAGE_KEY = 'jigri_memory';
 const MAX_ECHOES = 24;
 
 export class StorageEngine {
@@ -9,14 +9,16 @@ export class StorageEngine {
     _load() {
         try {
             const raw = localStorage.getItem(STORAGE_KEY);
-            if (!raw) return { echoes: [] };
+            if (!raw) return { echoes: [], session: null, conversationId: null };
             const parsed = JSON.parse(raw);
             return {
-                echoes: Array.isArray(parsed.echoes) ? parsed.echoes.slice(0, MAX_ECHOES) : []
+                echoes: Array.isArray(parsed.echoes) ? parsed.echoes.slice(0, MAX_ECHOES) : [],
+                session: parsed.session && typeof parsed.session === 'object' ? parsed.session : null,
+                conversationId: typeof parsed.conversationId === 'string' ? parsed.conversationId : null
             };
         } catch (e) {
-            console.warn('Could not load LUMA memory:', e);
-            return { echoes: [] };
+            console.warn('Could not load Jigri memory:', e);
+            return { echoes: [], session: null, conversationId: null };
         }
     }
 
@@ -24,7 +26,7 @@ export class StorageEngine {
         try {
             localStorage.setItem(STORAGE_KEY, JSON.stringify(this.data));
         } catch (e) {
-            console.warn('Could not persist LUMA memory:', e);
+            console.warn('Could not persist Jigri memory:', e);
         }
     }
 
@@ -42,7 +44,31 @@ export class StorageEngine {
     }
 
     clearMemory() {
-        this.data = { echoes: [] };
+        this.data = { echoes: [], session: this.data.session || null, conversationId: this.data.conversationId || null };
+        this._persist();
+    }
+
+    getSession() {
+        return this.data.session || null;
+    }
+
+    saveSession(session) {
+        this.data.session = session || null;
+        this._persist();
+    }
+
+    clearSession() {
+        this.data.session = null;
+        this.data.conversationId = null;
+        this._persist();
+    }
+
+    getConversationId() {
+        return this.data.conversationId || null;
+    }
+
+    saveConversationId(conversationId) {
+        this.data.conversationId = conversationId || null;
         this._persist();
     }
 }

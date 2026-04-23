@@ -3,8 +3,7 @@ import AIProvider from './AIProvider.js';
 export default class GeminiProvider extends AIProvider {
     constructor() {
         super();
-        this.apiKey = process.env.GEMINI_API_KEY;
-        this.endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${this.apiKey}`;
+        this.apiBase = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8787';
     }
 
     detectThoughtType(text) {
@@ -55,135 +54,171 @@ export default class GeminiProvider extends AIProvider {
         return winner[0];
     }
 
-    _getPromptByType(userText, thoughtType) {
-        const sharedRules = `STYLE:
-- write like a grounded human
-- 2 to 3 lines only
-- no therapy jargon
-- no robotic phrasing
-- no fluff`;
-
-        const prompts = {
-            negative: `SYSTEM:
-You help users create distance from anxious overthinking.
-
-USER INPUT:
-${userText}
-
-TASK:
-- reflect the thought naturally as "you\'re noticing the thought that..."
-- separate thought from certainty, without sounding clinical
-- keep tone steady and clear
-
-${sharedRules}`,
-
-            anger: `SYSTEM:
-You help users de-escalate intense reaction before action.
-
-USER INPUT:
-${userText}
-
-TASK:
-- acknowledge the intensity directly
-- create a pause between feeling and reaction
-- point to what needs action later vs what is heat right now
-
-${sharedRules}`,
-
-            confusion: `SYSTEM:
-You help users move from mental fog to simple clarity.
-
-USER INPUT:
-${userText}
-
-TASK:
-- name the uncertainty clearly
-- organize the next step into 2-3 concrete options/questions
-- keep response brief and practical
-
-${sharedRules}`,
-
-            positive: `SYSTEM:
-You reinforce grounded positive states without overexplaining.
-
-USER INPUT:
-${userText}
-
-TASK:
-- validate the stable positive moment
-- help the user stay with what is working
-- keep it concise and real
-
-${sharedRules}`
-        };
-
-        return prompts[thoughtType] || prompts.negative;
+    async requestOtp(email) {
+        const response = await fetch(`${this.apiBase}/api/auth/request-otp`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email })
+        });
+        if (!response.ok) {
+            const error = await response.json().catch(() => ({}));
+            throw new Error(error?.error || 'Failed to request OTP.');
+        }
+        return response.json();
     }
 
-    async defuse(userText, thoughtType = 'negative') {
-        if (!this.apiKey) {
-            return this._fallbackDefusion(userText, thoughtType);
+    async verifyOtp(email, token) {
+        const response = await fetch(`${this.apiBase}/api/auth/verify-otp`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, token })
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) {
+            throw new Error(data?.error || 'Failed to verify OTP.');
+        }
+        return data;
+    }
+
+    async getMe(accessToken) {
+        if (!accessToken) return null;
+        const response = await fetch(`${this.apiBase}/api/auth/me`, {
+            headers: { Authorization: `Bearer ${accessToken}` }
+        });
+        if (!response.ok) return null;
+        const data = await response.json().catch(() => null);
+        return data?.user || null;
+    }
+
+    async defuse(userText, thoughtType = 'negative', options = {}) {
+        const accessToken = options?.accessToken;
+        const conversationId = options?.conversationId || null;
+
+        if (!accessToken) {
+            return {
+                reply: this._fallbackDefusion(userText, thoughtType),
+                conversationId: conversationId || null
+            };
         }
 
-        const prompt = this._getPromptByType(userText, thoughtType);
-
         try {
-            const response = await fetch(this.endpoint, {
+            const response = await fetch(`${this.apiBase}/api/chat`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${accessToken}`
+                },
                 body: JSON.stringify({
-                    contents: [{ parts: [{ text: prompt }] }]
+                    message: userText,
+                    conversationId
                 })
             });
 
-            if (!response.ok) {
-                return this._fallbackDefusion(userText, thoughtType);
+            const data = await response.json().catch(() => ({}));
+            if (!response.ok || !data?.reply) {
+                return {
+                    reply: this._fallbackDefusion(userText, thoughtType),
+                    conversationId: conversationId || null
+                };
             }
 
-            const data = await response.json();
-            const text = data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
-            if (!text) return this._fallbackDefusion(userText, thoughtType);
-
-            return text
-                .split('\n')
-                .map((line) => line.trim())
-                .filter(Boolean)
-                .slice(0, 3)
-                .join('\n');
+            return {
+                reply: data.reply,
+                conversationId: data.conversationId || conversationId || null
+            };
         } catch (e) {
-            console.warn('Gemini call failed:', e);
-            return this._fallbackDefusion(userText, thoughtType);
+            console.warn('Server chat call failed:', e);
+            return {
+                reply: this._fallbackDefusion(userText, thoughtType),
+                conversationId: conversationId || null
+            };
         }
     }
 
     _fallbackDefusion(userText, thoughtType) {
-        const cleaned = userText.trim().replace(/[.!?]+$/, '');
+        const t = userText.toLowerCase().trim();
+
+        // Creator / founder / who made you detection
+        const creatorPhrases = [
+            'who made you', 'who created you', 'who built you', 'who is your creator',
+            'who invented you', 'who is your founder', 'who founded you', 'who developed you',
+            'your creator', 'your founder', 'who are you made by', 'who owns you',
+            'kisne banaya', 'tujhe kisne banaya', 'tera creator', 'tera founder'
+        ];
+        if (creatorPhrases.some(p => t.includes(p))) {
+            return 'Adib Sattar is my creator. He built me to be a warm companion you can always talk to.';
+        }
+
+        // Greeting detection — reply casually like a companion
+        const greetingPhrases = [
+            'hi', 'hey', 'hello', 'heyy', 'heyyy', 'hola', 'yo', 'sup',
+            'hi there', 'hey there', 'how are you', 'how r u', "how's it going",
+            'how are u', 'whats up', "what's up", 'howdy', 'hii', 'hiii'
+        ];
+        const isGreeting = greetingPhrases.some(g =>
+            t === g || t.startsWith(g + ' ') || t.startsWith(g + ',') ||
+            t.startsWith(g + '!') || t.startsWith(g + '?') || t.endsWith(' ' + g)
+        );
+
+        if (isGreeting) {
+            const greetingReplies = [
+                'Hey! Glad you came. How has your day been treating you?',
+                'Hi! Good to see you here. What\'s going on with you today?',
+                'Hey, always happy when you show up. What\'s on your mind?',
+                'Hey! I\'m here. Tell me, how are things on your end?',
+                'Hi there! I\'ve been waiting. What\'s up with you?'
+            ];
+            return greetingReplies[Math.floor(Math.random() * greetingReplies.length)];
+        }
+
+        // Very short or casual messages (under 15 chars, not clearly emotional)
+        if (userText.trim().length < 15 && thoughtType === 'negative') {
+            const casualReplies = [
+                'Tell me more, I\'m listening.',
+                'What\'s going on? I\'m here.',
+                'Go on, I\'m all ears.',
+                'Talk to me. What\'s happening?'
+            ];
+            return casualReplies[Math.floor(Math.random() * casualReplies.length)];
+        }
+
         if (thoughtType === 'positive') {
-            return [
-                'This sounds grounded and real.',
-                'Stay with this for a moment and notice what is supporting it.'
-            ].join('\n');
+            const positiveReplies = [
+                'That genuinely sounds good. What\'s been making things feel this way?',
+                'Really happy to hear that. Tell me more about what\'s going well.',
+                'That sounds like a good energy. What\'s been going right?'
+            ];
+            return positiveReplies[Math.floor(Math.random() * positiveReplies.length)];
         }
 
         if (thoughtType === 'anger') {
-            return [
-                'This feels intense right now.',
-                'Pause for a breath and separate what is heat from what truly needs action.'
-            ].join('\n');
+            const angerReplies = [
+                'That sounds really frustrating. What happened?',
+                'I hear you, that would get to anyone. What set this off?',
+                'Yeah, that sounds intense. What\'s the main thing bothering you right now?'
+            ];
+            return angerReplies[Math.floor(Math.random() * angerReplies.length)];
         }
 
         if (thoughtType === 'confusion') {
-            return [
-                'You are in a decision fog right now.',
-                'Name the top two options, then choose one next step for each.'
-            ].join('\n');
+            const confusionReplies = [
+                'Sounds like a lot is swirling. What feels most unsettled right now?',
+                'That kind of uncertainty is tough. What\'s the part you keep going back to?',
+                'I get it, it\'s a lot. What would make things feel even a little clearer?'
+            ];
+            return confusionReplies[Math.floor(Math.random() * confusionReplies.length)];
         }
 
-        return [
-            `You\'re noticing the thought that ${cleaned}.`,
-            'It feels convincing, but you can hold it as a thought instead of a certainty.'
-        ].join('\n');
+        // Default emotional reply
+        const defaultReplies = [
+            'I hear you. That sounds heavy. What\'s been the hardest part?',
+            'That makes sense to feel. You don\'t have to carry it alone. What happened?',
+            'Yeah, that sounds like a lot. Talk me through it.',
+            'I\'m right here. Tell me what\'s been going on.'
+        ];
+        return defaultReplies[Math.floor(Math.random() * defaultReplies.length)];
     }
+
 
     detectEmotion(text) {
         const t = text.toLowerCase();

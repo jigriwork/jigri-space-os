@@ -4,11 +4,11 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <meta name="description" content="LUMA — Break the loop. Defuse the thought. In under 60 seconds." />
+  <meta name="description" content="Jigri — a warm presence, always here. Talk freely. Be heard." />
   <meta name="theme-color" content="#050510" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-  <meta name="apple-mobile-web-app-title" content="LUMA" />
+  <meta name="apple-mobile-web-app-title" content="Jigri" />
   <link rel="icon" type="image/svg+xml" href="/icons/favicon.svg" />
   <link rel="apple-touch-icon" href="/icons/icon-192.png" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -16,19 +16,20 @@
   <link
     href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Outfit:wght@200;300;400;500;600;700&display=swap"
     rel="stylesheet" />
-  <title>LUMA — Cognitive Defusion Engine</title>
-  <script type="module" crossorigin src="/assets/index-Ksl-10Kj.js"></script>
-  <link rel="stylesheet" crossorigin href="/assets/index-Dep81YQ3.css">
+  <title>Jigri | someone to talk to</title>
+  <script type="module" crossorigin src="/assets/index-sNUxpNrr.js"></script>
+  <link rel="stylesheet" crossorigin href="/assets/index-B9mTxG8-.css">
 <link rel="manifest" href="/manifest.webmanifest"><script id="vite-plugin-pwa:register-sw" src="/registerSW.js"></script></head>
 
 <body>
   <section id="home-screen">
     <div id="home-stars" aria-hidden="true"></div>
+    <div class="home-orb" aria-hidden="true"></div>
     <div id="home-content">
-      <h1>Get out of your head.</h1>
-      <h2>In under 60 seconds.</h2>
-      <p>When your thoughts spiral, don’t fight them. Watch them lose power.</p>
-      <button id="home-cta" aria-label="Start LUMA">Try it now</button>
+      <h1>You don't have to figure it out alone.</h1>
+      <h2>Jigri is here, whenever you need.</h2>
+      <p>A private space to speak freely. No judgment, no script. Just a warm presence that listens.</p>
+      <button id="home-cta" aria-label="Open Jigri">Start talking</button>
     </div>
   </section>
 
@@ -37,30 +38,39 @@
     <canvas id="main-canvas" aria-hidden="true"></canvas>
     <canvas id="fx-canvas" aria-hidden="true"></canvas>
 
+    <!-- Persistent conversation thread -->
+    <div id="conversation-thread" aria-live="polite"></div>
+
     <header id="app-title">
-      <h1>LUMA</h1>
-      <p>Defuse the thought in under 60 seconds</p>
+      <h1>JIGRI<span class="presence-dot" aria-hidden="true"></span></h1>
+      <p>your private space to speak freely</p>
     </header>
 
     <main id="dump-container">
-      <textarea id="dump-input" placeholder="Dump the thought exactly as it is..." spellcheck="false"
+      <textarea id="dump-input" placeholder="Reply to Jigri..." spellcheck="false"
         autocomplete="off"></textarea>
-      <button id="dump-release" aria-label="Release thought">
-        <span>Release it</span>
+      <button id="dump-release" aria-label="Send message">
+        <span>Send</span>
       </button>
     </main>
 
     <section id="breathing-guide" class="hidden" aria-live="polite">
       <div id="breath-circle"></div>
-      <p id="breath-label">Pause. Breathe.</p>
+      <p id="breath-label">Jigri is listening...</p>
     </section>
 
     <section id="defusion-panel" class="hidden" aria-live="polite">
+      <div id="jigri-reply-header">
+        <span id="jigri-label">Jigri</span>
+      </div>
+      <div id="typing-dots" class="typing-dots hidden">
+        <span></span><span></span><span></span>
+      </div>
       <p id="defusion-text"></p>
     </section>
 
     <section id="session-end" class="hidden" aria-live="polite">
-      <p id="session-end-text">Thought released.</p>
+      <p id="session-end-text">Always here.</p>
     </section>
 
     <aside id="controls-panel">
@@ -74,6 +84,56 @@
       <button id="btn-volume" class="ctrl-btn" title="Cycle Volume" aria-label="Cycle volume">VOL</button>
       <button id="btn-mode" class="ctrl-btn" title="Change Music Mode" aria-label="Change music mode">MODE</button>
     </aside>
+
+    <!-- Auth Modal — in-app, dark cosmic, no browser prompts -->
+    <div id="auth-overlay" class="hidden" aria-modal="true" role="dialog" aria-label="Continue with Jigri">
+      <div id="auth-modal">
+        <div id="auth-modal-glow" aria-hidden="true"></div>
+
+        <div id="auth-modal-inner">
+          <!-- Email step -->
+          <div id="auth-step-email" class="auth-step">
+            <div class="auth-icon" aria-hidden="true">✦</div>
+            <h2 class="auth-title">Let Jigri remember you</h2>
+            <p class="auth-subtitle">Enter your email so your conversations stay with you.</p>
+            <div class="auth-input-wrap">
+              <input id="auth-email-input" type="email" placeholder="your@email.com" autocomplete="email"
+                spellcheck="false" />
+            </div>
+            <div id="auth-email-error" class="auth-error hidden"></div>
+            <button id="auth-email-submit" class="auth-btn">Continue</button>
+            <button id="auth-skip" class="auth-skip-btn">Not now</button>
+          </div>
+
+          <!-- OTP step -->
+          <div id="auth-step-otp" class="auth-step hidden">
+            <div class="auth-icon" aria-hidden="true">✦</div>
+            <h2 class="auth-title">Check your inbox</h2>
+            <p class="auth-subtitle" id="auth-otp-hint">We sent a code to your email.</p>
+            <div class="auth-input-wrap">
+              <input id="auth-otp-input" type="text" inputmode="numeric" placeholder="000000"
+                maxlength="6" autocomplete="one-time-code" spellcheck="false" />
+            </div>
+            <div id="auth-otp-error" class="auth-error hidden"></div>
+            <button id="auth-otp-submit" class="auth-btn">Verify</button>
+            <button id="auth-otp-back" class="auth-skip-btn">← Back</button>
+          </div>
+
+          <!-- Loading step -->
+          <div id="auth-step-loading" class="auth-step hidden">
+            <div class="auth-loading-ring" aria-hidden="true"></div>
+            <p class="auth-loading-text" id="auth-loading-text">Sending you a code...</p>
+          </div>
+
+          <!-- Success step -->
+          <div id="auth-step-success" class="auth-step hidden">
+            <div class="auth-icon auth-icon-success" aria-hidden="true">✦</div>
+            <h2 class="auth-title">You're in.</h2>
+            <p class="auth-subtitle">Jigri will remember you from here.</p>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 
 </body>

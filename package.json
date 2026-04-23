@@ -1,12 +1,19 @@
 {
-  "name": "luma-app",
+  "name": "jigri-ai",
   "private": true,
   "version": "1.0.0",
-  "description": "LUMA — A Living Emotional Universe. Your thoughts become patterns. Your patterns become a universe.",
+  "description": "Jigri: a warm companion presence. Talk freely, be heard, be remembered.",
   "scripts": {
     "dev": "vite",
+    "dev:server": "node server.cjs",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "start": "node server.cjs"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.49.8",
+    "dotenv": "^16.4.5",
+    "express": "^4.21.2"
   },
   "devDependencies": {
     "vite": "^6.0.0",
