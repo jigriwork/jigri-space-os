@@ -9,12 +9,23 @@ export default class AIProvider {
   }
 
   /**
+   * Detect conversation mode for tone routing.
+   * @param {string} text
+   * @param {'negative'|'anger'|'confusion'|'positive'} thoughtType
+   * @param {string} emotion
+   * @returns {'venting'|'loneliness'|'casual'|'happiness'}
+   */
+  detectConversationMode(text, thoughtType = 'negative', emotion = 'stress') {
+    throw new Error('Not implemented');
+  }
+
+  /**
    * Generate a short mode-aware response.
    * @param {string} userText
    * @param {'negative'|'anger'|'confusion'|'positive'} thoughtType
    * @returns {Promise<string>}
    */
-  async defuse(userText, thoughtType = 'negative') {
+  async defuse(userText, thoughtType = 'negative', options = {}) {
     throw new Error('Not implemented');
   }
 

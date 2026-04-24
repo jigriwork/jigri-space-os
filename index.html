@@ -31,7 +31,7 @@
     </div>
   </section>
 
-  <div id="luma-app" class="hidden">
+  <div id="jigri-app" class="hidden">
     <canvas id="bg-canvas" aria-hidden="true"></canvas>
     <canvas id="main-canvas" aria-hidden="true"></canvas>
     <canvas id="fx-canvas" aria-hidden="true"></canvas>
@@ -45,8 +45,7 @@
     </header>
 
     <main id="dump-container">
-      <textarea id="dump-input" placeholder="Reply to Jigri..." spellcheck="false"
-        autocomplete="off"></textarea>
+      <textarea id="dump-input" placeholder="Reply to Jigri..." spellcheck="false" autocomplete="off"></textarea>
       <button id="dump-release" aria-label="Send message">
         <span>Send</span>
       </button>
@@ -109,8 +108,8 @@
             <h2 class="auth-title">Check your inbox</h2>
             <p class="auth-subtitle" id="auth-otp-hint">We sent a code to your email.</p>
             <div class="auth-input-wrap">
-              <input id="auth-otp-input" type="text" inputmode="numeric" placeholder="000000"
-                maxlength="6" autocomplete="one-time-code" spellcheck="false" />
+              <input id="auth-otp-input" type="text" inputmode="numeric" placeholder="000000" maxlength="6"
+                autocomplete="one-time-code" spellcheck="false" />
             </div>
             <div id="auth-otp-error" class="auth-error hidden"></div>
             <button id="auth-otp-submit" class="auth-btn">Verify</button>

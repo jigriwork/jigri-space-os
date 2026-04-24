@@ -1,76 +1,57 @@
 /**
- * AudioEngine — Generative ambient music and sound effects
- * Creates evolving soundscapes that respond to the universe state
+ * AudioEngine — Soothing generative ambient soundscapes
+ * Designed to calm and relax; every sound is soft, warm, and slow
  */
 
 const NOTE_FREQUENCIES = {
-  'A1': 58.27, 'A#1': 61.74, 'B1': 61.74,
-  'C2': 65.41, 'C#2': 69.30, 'D2': 73.42, 'D#2': 77.78, 'E2': 82.41, 'F2': 87.31, 'F#2': 92.50, 'G2': 98.00, 'G#2': 103.83, 'A2': 110.0, 'A#2': 116.54, 'B2': 123.47,
-  'C3': 130.81, 'C#3': 138.59, 'D3': 146.83, 'D#3': 155.56, 'E3': 164.81, 'F3': 174.61, 'F#3': 185.00, 'G3': 196.00, 'G#3': 207.65, 'A3': 220.0, 'A#3': 233.08, 'B3': 246.94,
-  'C4': 261.63, 'C#4': 277.18, 'D4': 293.66, 'D#4': 311.13, 'E4': 329.63, 'F4': 349.23, 'F#4': 369.99, 'G4': 392.00, 'G#4': 415.30, 'A4': 440.0, 'A#4': 466.16, 'B4': 493.88,
-  'C5': 523.25, 'C#5': 554.37, 'D5': 587.33, 'D#5': 622.25, 'E5': 659.25, 'F5': 698.46, 'F#5': 739.99, 'G5': 783.99, 'G#5': 830.61, 'A5': 880.0, 'A#5': 932.33, 'B5': 987.77,
+  'A1': 55.00, 'B1': 61.74,
+  'C2': 65.41, 'D2': 73.42, 'E2': 82.41, 'F2': 87.31, 'F#2': 92.50, 'G2': 98.00, 'G#2': 103.83, 'A2': 110.0, 'B2': 123.47,
+  'C3': 130.81, 'D3': 146.83, 'E3': 164.81, 'F3': 174.61, 'F#3': 185.00, 'G3': 196.00, 'A3': 220.0, 'B3': 246.94,
+  'C4': 261.63, 'D4': 293.66, 'E4': 329.63, 'F4': 349.23, 'G4': 392.00, 'A4': 440.0, 'B4': 493.88,
+  'C5': 523.25, 'D5': 587.33, 'E5': 659.25, 'G5': 783.99,
 };
 
+// All modes use pentatonic or suspended chords — no tension, pure calm
 const AMBIENT_MODES = [
   {
     pad: ['C2', 'G2', 'C3'],
-    melody: ['C3', 'E3', 'G3', 'B3', 'C4', 'E4', 'G4'],
-    name: 'neutral'
-  },
-  {
-    pad: ['D2', 'A2', 'D3'],
-    melody: ['D3', 'F3', 'A3', 'C4', 'D4', 'F4', 'A4'],
-    name: 'deep'
-  },
-  {
-    pad: ['E2', 'B2', 'E3'],
-    melody: ['E3', 'G3', 'B3', 'D4', 'E4', 'G4', 'B4'],
-    name: 'lift'
-  },
-  {
-    pad: ['A1', 'E2', 'A2'],
-    melody: ['A2', 'C3', 'E3', 'G3', 'A3', 'C4', 'E4'],
-    name: 'night'
-  },
-  {
-    pad: ['F2', 'C3', 'F3'],
-    melody: ['F3', 'A3', 'C4', 'E4', 'F4', 'A4', 'C5'],
-    name: 'warm'
+    melody: ['C4', 'E4', 'G4', 'C5', 'E5'],
+    name: 'stillness'
   },
   {
     pad: ['G2', 'D3', 'G3'],
-    melody: ['G3', 'A3', 'B3', 'D4', 'E4', 'G4', 'A4'],
-    name: 'drift'
+    melody: ['G3', 'B3', 'D4', 'G4', 'B4'],
+    name: 'moonlight'
+  },
+  {
+    pad: ['D2', 'A2', 'D3'],
+    melody: ['D4', 'F#3', 'A3', 'D4', 'A4'],
+    name: 'forest'
+  },
+  {
+    pad: ['A1', 'E2', 'A2'],
+    melody: ['A3', 'C4', 'E4', 'A4', 'C5'],
+    name: 'rainfall'
+  },
+  {
+    pad: ['F2', 'C3', 'F3'],
+    melody: ['F3', 'A3', 'C4', 'F4', 'A4'],
+    name: 'clouds'
+  },
+  {
+    pad: ['E2', 'B2', 'E3'],
+    melody: ['E3', 'G3', 'B3', 'E4', 'G4'],
+    name: 'ocean'
   },
   {
     pad: ['B1', 'F#2', 'B2'],
-    melody: ['B2', 'D#3', 'F#3', 'A#3', 'B3', 'D#4', 'F#4'],
-    name: 'zen'
+    melody: ['B3', 'D4', 'F#3', 'B3', 'D4'],
+    name: 'twilight'
   },
   {
-    pad: ['C#2', 'G#2', 'C#3'],
-    melody: ['C#3', 'E3', 'G#3', 'B3', 'C#4', 'E4', 'G#4'],
-    name: 'echo'
-  },
-  {
-    pad: ['G#1', 'D#2', 'G#2'],
-    melody: ['G#2', 'A2', 'C3', 'D#3', 'E3', 'G#3', 'A3'],
-    name: 'void'
-  },
-  {
-    pad: ['F#2', 'C#3', 'F#3'],
-    melody: ['F#3', 'A#3', 'C#4', 'F4', 'F#4', 'A#4', 'C#5'],
-    name: 'nova'
-  },
-  {
-    pad: ['A#1', 'F2', 'A#2'],
-    melody: ['A#2', 'C#3', 'D#3', 'F3', 'G#3', 'A#3', 'C#4'],
-    name: 'mist'
-  },
-  {
-    pad: ['D#2', 'A#2', 'D#3'],
-    melody: ['D#3', 'G3', 'A#3', 'D4', 'D#4', 'G4', 'A#4'],
-    name: 'dawn'
+    pad: ['F2', 'A2', 'C3'],
+    melody: ['F3', 'A3', 'C4', 'E4', 'F4'],
+    name: 'breath'
   }
 ];
 
@@ -86,11 +67,11 @@ export class AudioEngine {
     this.initialized = false;
     this.modeIndex = 0;
     this.modeTimer = null;
-    this.volumePresets = [0.4, 0.58, 0.75];
+    this.volumePresets = [0.28, 0.42, 0.58];
     this.volumePresetIndex = 1;
-    this.currentEmotion = 'stress';
-    this.currentIntensity = 0.6;
-    this.melodyIntervalMs = 2600;
+    this.currentEmotion = 'calm';
+    this.currentIntensity = 0.4;
+    this.melodyIntervalMs = 4200;
   }
 
   async init() {
@@ -98,36 +79,38 @@ export class AudioEngine {
 
     this.ctx = new (window.AudioContext || window.webkitAudioContext)();
 
-    // Master gain
+    // Master gain — start gentle
     this.masterGain = this.ctx.createGain();
     this.masterGain.gain.value = this.volumePresets[this.volumePresetIndex];
 
-    // Create reverb
+    // Lush reverb (longer tail for spaciousness)
     this.reverbNode = await this._createReverb();
     this.reverbNode.connect(this.masterGain);
     this.masterGain.connect(this.ctx.destination);
 
-    // Dry path
+    // Dry path — very low for dreaminess
     this.dryGain = this.ctx.createGain();
-    this.dryGain.gain.value = 0.4;
+    this.dryGain.gain.value = 0.18;
     this.dryGain.connect(this.masterGain);
 
-    // Wet path (reverb)
+    // Wet path — dominant for spacious feel
     this.wetGain = this.ctx.createGain();
-    this.wetGain.gain.value = 0.6;
+    this.wetGain.gain.value = 0.78;
     this.wetGain.connect(this.reverbNode);
 
     this.initialized = true;
   }
 
   async _createReverb() {
-    const length = this.ctx.sampleRate * 3;
+    // Long, lush reverb tail (4.5 seconds)
+    const length = this.ctx.sampleRate * 4.5;
     const impulse = this.ctx.createBuffer(2, length, this.ctx.sampleRate);
 
     for (let ch = 0; ch < 2; ch++) {
       const data = impulse.getChannelData(ch);
       for (let i = 0; i < length; i++) {
-        data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / length, 2.5);
+        // Slower decay = longer, more spacious reverb tail
+        data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / length, 1.8);
       }
     }
 
@@ -142,38 +125,44 @@ export class AudioEngine {
 
     this.modeIndex = Math.floor(Math.random() * AMBIENT_MODES.length);
 
-    // Start pad drones
+    // Start warm pad drones
     this._startPads();
 
-    // Start ambient melody
+    // Start slow, floating melody
     this._playAmbientNote();
     this.ambientInterval = setInterval(() => {
       if (this.isPlaying) this._playAmbientNote();
     }, this.melodyIntervalMs);
 
-    // Rotate ambient mode for more musical variation
+    // Gently rotate mode every 32 seconds for subtle evolution
     this.modeTimer = setInterval(() => {
       if (!this.isPlaying) return;
       this._rotateMode();
-    }, 24000);
+    }, 32000);
   }
 
   _startPads() {
     const mode = AMBIENT_MODES[this.modeIndex];
     mode.pad.forEach((note, i) => {
+      const freq = NOTE_FREQUENCIES[note];
+      if (!freq) return;
+
+      // Primary oscillator — pure sine for warmth
       const osc = this.ctx.createOscillator();
       const gain = this.ctx.createGain();
       const filter = this.ctx.createBiquadFilter();
 
       osc.type = 'sine';
-      osc.frequency.value = NOTE_FREQUENCIES[note];
+      osc.frequency.value = freq;
 
+      // Very low cutoff for that pillowy, muffled warmth
       filter.type = 'lowpass';
-      filter.frequency.value = 400;
-      filter.Q.value = 1;
+      filter.frequency.value = 220 + i * 30;
+      filter.Q.value = 0.5;
 
+      // Slow, gentle fade in (4 seconds)
       gain.gain.value = 0;
-      gain.gain.linearRampToValueAtTime(0.12, this.ctx.currentTime + 2.3);
+      gain.gain.linearRampToValueAtTime(0.08, this.ctx.currentTime + 4);
 
       osc.connect(filter);
       filter.connect(gain);
@@ -182,16 +171,26 @@ export class AudioEngine {
 
       osc.start();
 
-      // Subtle LFO for movement
+      // Very slow LFO — gives gentle breathing movement to each drone
       const lfo = this.ctx.createOscillator();
       const lfoGain = this.ctx.createGain();
-      lfo.frequency.value = 0.05 + i * 0.02;
-      lfoGain.gain.value = 3;
+      lfo.frequency.value = 0.02 + i * 0.008; // ultra-slow wobble
+      lfoGain.gain.value = 1.5; // subtle pitch drift
       lfo.connect(lfoGain);
       lfoGain.connect(osc.frequency);
       lfo.start();
 
-      this.padOscillators.push({ osc, gain, filter, lfo, lfoGain });
+      // Second detuned oscillator for lush chorus effect
+      const osc2 = this.ctx.createOscillator();
+      const gain2 = this.ctx.createGain();
+      osc2.type = 'sine';
+      osc2.frequency.value = freq + 0.4 + i * 0.2; // slight detune = warm chorus
+      gain2.gain.value = 0;
+      gain2.gain.linearRampToValueAtTime(0.04, this.ctx.currentTime + 5);
+      osc2.connect(filter);
+      osc2.start();
+
+      this.padOscillators.push({ osc, gain, filter, lfo, lfoGain, osc2, gain2 });
     });
   }
 
@@ -201,22 +200,27 @@ export class AudioEngine {
     const mode = AMBIENT_MODES[this.modeIndex];
     const note = mode.melody[Math.floor(Math.random() * mode.melody.length)];
     const freq = NOTE_FREQUENCIES[note];
+    if (!freq) return;
+
     const now = this.ctx.currentTime;
-    const duration = 1.2 + Math.random() * 2.2;
+    const duration = 4.5 + Math.random() * 5; // long, floating notes (4.5-9.5 seconds)
 
     const osc = this.ctx.createOscillator();
     const gain = this.ctx.createGain();
     const filter = this.ctx.createBiquadFilter();
 
-    osc.type = Math.random() > 0.4 ? 'sine' : (Math.random() > 0.5 ? 'triangle' : 'sawtooth');
+    // Only sine and triangle — never sawtooth or square
+    osc.type = Math.random() > 0.3 ? 'sine' : 'triangle';
     osc.frequency.value = freq;
 
+    // Low filter for softness
     filter.type = 'lowpass';
-    filter.frequency.value = 620 + Math.random() * 780;
+    filter.frequency.value = 320 + Math.random() * 280;
 
+    // Very slow attack (1.2s), long tail — notes bloom gently
     gain.gain.value = 0;
-    const emotionBoost = this.currentEmotion === 'anger' || this.currentEmotion === 'stress' ? 0.03 : 0;
-    gain.gain.linearRampToValueAtTime(0.07 + Math.random() * 0.06 + emotionBoost, now + 0.3);
+    gain.gain.linearRampToValueAtTime(0.035 + Math.random() * 0.025, now + 1.2);
+    gain.gain.linearRampToValueAtTime(0.02, now + duration * 0.6);
     gain.gain.linearRampToValueAtTime(0, now + duration);
 
     osc.connect(filter);
@@ -227,44 +231,34 @@ export class AudioEngine {
     osc.stop(now + duration);
     this.activeMelodyVoices.push(osc);
 
-    // Occasional shimmer harmony note
-    if (Math.random() > 0.62) {
-      const harmony = this.ctx.createOscillator();
-      const hGain = this.ctx.createGain();
-      harmony.type = 'sine';
-      harmony.frequency.value = freq * (Math.random() > 0.5 ? 1.5 : 2);
-      hGain.gain.value = 0;
-      hGain.gain.linearRampToValueAtTime(0.028, now + 0.2);
-      hGain.gain.linearRampToValueAtTime(0, now + duration * 0.9);
-      harmony.connect(hGain);
-      hGain.connect(this.wetGain);
-      harmony.start(now);
-      harmony.stop(now + duration * 0.9);
+    // Soft octave shimmer — very quiet, only sometimes
+    if (Math.random() > 0.7) {
+      const shimmer = this.ctx.createOscillator();
+      const sGain = this.ctx.createGain();
+      shimmer.type = 'sine';
+      shimmer.frequency.value = freq * 2; // one octave up
+      sGain.gain.value = 0;
+      sGain.gain.linearRampToValueAtTime(0.012, now + 1.8);
+      sGain.gain.linearRampToValueAtTime(0, now + duration * 0.85);
+      shimmer.connect(sGain);
+      sGain.connect(this.wetGain);
+      shimmer.start(now + 0.5);
+      shimmer.stop(now + duration * 0.85);
     }
 
-    // Sparse secondary note for richer ambient motion
-    if (Math.random() > 0.78) {
-      const note2 = mode.melody[Math.floor(Math.random() * mode.melody.length)];
-      const freq2 = NOTE_FREQUENCIES[note2] * (Math.random() > 0.5 ? 0.5 : 1);
-      const osc2 = this.ctx.createOscillator();
-      const gain2 = this.ctx.createGain();
-      const filter2 = this.ctx.createBiquadFilter();
-
-      osc2.type = 'triangle';
-      osc2.frequency.value = freq2;
-      filter2.type = 'lowpass';
-      filter2.frequency.value = 520 + Math.random() * 520;
-
-      gain2.gain.value = 0;
-      gain2.gain.linearRampToValueAtTime(0.028, now + 0.22);
-      gain2.gain.linearRampToValueAtTime(0, now + duration * 0.75);
-
-      osc2.connect(filter2);
-      filter2.connect(gain2);
-      gain2.connect(this.wetGain);
-
-      osc2.start(now + 0.07);
-      osc2.stop(now + duration * 0.75);
+    // Rare gentle fifth harmony — adds depth without tension
+    if (Math.random() > 0.82) {
+      const fifth = this.ctx.createOscillator();
+      const fGain = this.ctx.createGain();
+      fifth.type = 'sine';
+      fifth.frequency.value = freq * 1.5;
+      fGain.gain.value = 0;
+      fGain.gain.linearRampToValueAtTime(0.015, now + 2);
+      fGain.gain.linearRampToValueAtTime(0, now + duration * 0.7);
+      fifth.connect(fGain);
+      fGain.connect(this.wetGain);
+      fifth.start(now + 0.8);
+      fifth.stop(now + duration * 0.7);
     }
   }
 
@@ -272,41 +266,44 @@ export class AudioEngine {
     this.modeIndex = (this.modeIndex + 1) % AMBIENT_MODES.length;
     const now = this.ctx.currentTime;
 
-    this.padOscillators.forEach(({ osc, gain, lfo }) => {
+    // Slow crossfade out (2.5 seconds) — no abrupt changes
+    this.padOscillators.forEach(({ osc, gain, lfo, osc2, gain2 }) => {
       try {
-        gain.gain.linearRampToValueAtTime(0, now + 0.8);
+        gain.gain.linearRampToValueAtTime(0, now + 2.5);
+        if (gain2) gain2.gain.linearRampToValueAtTime(0, now + 2.5);
         setTimeout(() => {
           try {
             osc.stop();
             lfo.stop();
+            if (osc2) osc2.stop();
           } catch (e) { }
-        }, 1100);
+        }, 3000);
       } catch (e) { }
     });
     this.padOscillators = [];
-    this._startPads();
+    // Start new pads after a gentle pause
+    setTimeout(() => {
+      if (this.isPlaying) this._startPads();
+    }, 1200);
   }
 
-  setEmotionState(emotion = 'stress', intensity = 0.6) {
+  setEmotionState(emotion = 'calm', intensity = 0.4) {
     this.currentEmotion = emotion;
     this.currentIntensity = Math.max(0.2, Math.min(1, intensity));
 
+    // All emotions map to calming modes — no tense soundscapes
     const moodToMode = {
-      fear: 1,
-      sadness: 1,
-      confusion: 0,
-      stress: 2,
-      anger: 2
+      fear: 3,       // rainfall — gentle, grounding
+      sadness: 5,    // ocean — deep, warm
+      confusion: 1,  // moonlight — clear, open
+      stress: 7,     // breath — focused calm
+      anger: 2,      // forest — nature, steady
+      calm: 0        // stillness — pure peace
     };
     this.modeIndex = moodToMode[emotion] ?? 0;
 
-    const fast = emotion === 'anger' || emotion === 'stress';
-    const slower = emotion === 'fear' || emotion === 'sadness';
-    this.melodyIntervalMs = fast
-      ? 1500 + (1 - this.currentIntensity) * 900
-      : slower
-        ? 2800 + (1 - this.currentIntensity) * 1300
-        : 2100 + (1 - this.currentIntensity) * 1200;
+    // Always keep melody slow and spacious — calming regardless of emotion
+    this.melodyIntervalMs = 3600 + (1 - this.currentIntensity) * 2400; // 3.6s to 6s
 
     if (this.isPlaying) {
       if (this.ambientInterval) clearInterval(this.ambientInterval);
@@ -337,72 +334,65 @@ export class AudioEngine {
   }
 
   /**
-   * Play a creation sound when a new entity is born
+   * Play a soft creation sound when a new entity appears
    */
   playCreation(emotionData) {
     if (!this.initialized || !this.ctx) return;
 
     const freq = NOTE_FREQUENCIES[emotionData.audioNote] || 440;
     const now = this.ctx.currentTime;
-    const intensity = emotionData.intensity || 0.8;
+    const intensity = Math.min(emotionData.intensity || 0.5, 0.65); // cap intensity
 
-    // Main tone
+    // Gentle bell-like tone
     const osc1 = this.ctx.createOscillator();
-    const osc2 = this.ctx.createOscillator();
     const gain = this.ctx.createGain();
     const filter = this.ctx.createBiquadFilter();
 
     osc1.type = 'sine';
     osc1.frequency.value = freq;
 
-    osc2.type = 'triangle';
-    osc2.frequency.value = freq * 1.5; // fifth
-
     filter.type = 'lowpass';
-    filter.frequency.value = 2000;
-    filter.frequency.linearRampToValueAtTime(400, now + 2);
+    filter.frequency.value = 800;
+    filter.frequency.linearRampToValueAtTime(200, now + 3);
 
+    // Soft attack, long decay
     gain.gain.value = 0;
-    gain.gain.linearRampToValueAtTime(0.15 * intensity, now + 0.1);
-    gain.gain.exponentialRampToValueAtTime(0.001, now + 2.5);
+    gain.gain.linearRampToValueAtTime(0.09 * intensity, now + 0.4);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 4);
 
     osc1.connect(filter);
-    osc2.connect(filter);
     filter.connect(gain);
     gain.connect(this.wetGain);
-    gain.connect(this.dryGain);
 
     osc1.start(now);
-    osc2.start(now);
-    osc1.stop(now + 2.5);
-    osc2.stop(now + 2.5);
+    osc1.stop(now + 4);
 
-    // Sub bass hit
-    const sub = this.ctx.createOscillator();
-    const subGain = this.ctx.createGain();
-    sub.type = 'sine';
-    sub.frequency.value = freq / 4;
-    sub.frequency.linearRampToValueAtTime(freq / 8, now + 1);
-    subGain.gain.value = 0.12 * intensity;
-    subGain.gain.exponentialRampToValueAtTime(0.001, now + 1.5);
-    sub.connect(subGain);
-    subGain.connect(this.dryGain);
-    sub.start(now);
-    sub.stop(now + 1.5);
+    // Soft fifth
+    const fifth = this.ctx.createOscillator();
+    const fGain = this.ctx.createGain();
+    fifth.type = 'sine';
+    fifth.frequency.value = freq * 1.5;
+    fGain.gain.value = 0;
+    fGain.gain.linearRampToValueAtTime(0.035 * intensity, now + 0.6);
+    fGain.gain.exponentialRampToValueAtTime(0.001, now + 3.5);
+    fifth.connect(fGain);
+    fGain.connect(this.wetGain);
+    fifth.start(now + 0.15);
+    fifth.stop(now + 3.5);
 
-    // Shimmer
-    for (let i = 0; i < 3; i++) {
+    // Gentle shimmer cascade
+    for (let i = 0; i < 2; i++) {
       const shimmer = this.ctx.createOscillator();
       const sGain = this.ctx.createGain();
       shimmer.type = 'sine';
-      shimmer.frequency.value = freq * (2 + i) + Math.random() * 20;
+      shimmer.frequency.value = freq * (2 + i) + Math.random() * 5;
       sGain.gain.value = 0;
-      sGain.gain.linearRampToValueAtTime(0.03, now + 0.2 + i * 0.1);
-      sGain.gain.exponentialRampToValueAtTime(0.001, now + 2 + i * 0.3);
+      sGain.gain.linearRampToValueAtTime(0.015, now + 0.8 + i * 0.3);
+      sGain.gain.exponentialRampToValueAtTime(0.001, now + 3 + i * 0.4);
       shimmer.connect(sGain);
       sGain.connect(this.wetGain);
-      shimmer.start(now + i * 0.1);
-      shimmer.stop(now + 2.5 + i * 0.3);
+      shimmer.start(now + 0.3 + i * 0.2);
+      shimmer.stop(now + 3.5 + i * 0.4);
     }
   }
 
@@ -425,11 +415,16 @@ export class AudioEngine {
     this.activeMelodyVoices = [];
 
     const now = this.ctx?.currentTime || 0;
-    this.padOscillators.forEach(({ osc, gain, lfo }) => {
-      gain.gain.linearRampToValueAtTime(0, now + 1);
+    this.padOscillators.forEach(({ osc, gain, lfo, osc2, gain2 }) => {
+      gain.gain.linearRampToValueAtTime(0, now + 2);
+      if (gain2) gain2.gain.linearRampToValueAtTime(0, now + 2);
       setTimeout(() => {
-        try { osc.stop(); lfo.stop(); } catch (e) { }
-      }, 1500);
+        try {
+          osc.stop();
+          lfo.stop();
+          if (osc2) osc2.stop();
+        } catch (e) { }
+      }, 2500);
     });
     this.padOscillators = [];
   }
@@ -445,7 +440,7 @@ export class AudioEngine {
 
   setVolume(v) {
     if (this.masterGain) {
-      this.masterGain.gain.linearRampToValueAtTime(v, this.ctx.currentTime + 0.1);
+      this.masterGain.gain.linearRampToValueAtTime(v, this.ctx.currentTime + 0.3);
     }
   }
 

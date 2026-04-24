@@ -74,6 +74,8 @@ export class Universe {
             twinkle: 0.2 + Math.random() * 0.8,
             phase: Math.random() * Math.PI * 2
         }));
+
+        this.shootingStars = [];
     }
 
     _emotionColor(emotion) {
@@ -103,12 +105,85 @@ export class Universe {
         ctx.fillStyle = grad;
         ctx.fillRect(0, 0, this.width, this.height);
 
+        // Aurora Waves (Subtle)
+        ctx.save();
+        ctx.globalCompositeOperation = 'screen';
+        const wave1 = Math.sin(this.time * 0.002) * 50;
+        const wave2 = Math.cos(this.time * 0.003) * 50;
+        const aurora = ctx.createLinearGradient(0, 0, this.width, this.height);
+        aurora.addColorStop(0, `rgba(182, 140, 255, ${0.02 + Math.sin(this.time * 0.01)*0.01})`);
+        aurora.addColorStop(0.5, `rgba(138, 255, 204, ${0.015 + Math.cos(this.time * 0.008)*0.01})`);
+        aurora.addColorStop(1, 'rgba(255, 126, 168, 0.01)');
+        ctx.fillStyle = aurora;
+        ctx.beginPath();
+        ctx.moveTo(0, this.height * 0.3 + wave1);
+        ctx.bezierCurveTo(this.width * 0.33, this.height * 0.2 + wave2, this.width * 0.66, this.height * 0.4 - wave1, this.width, this.height * 0.3 + wave2);
+        ctx.lineTo(this.width, 0);
+        ctx.lineTo(0, 0);
+        ctx.fill();
+        ctx.restore();
+
+        // Constellation Lines (Very Faint)
+        ctx.strokeStyle = 'rgba(182, 140, 255, 0.03)';
+        ctx.lineWidth = 0.5;
+        ctx.beginPath();
+        for (let i = 0; i < this.stars.length; i += 6) {
+            if (i + 1 < this.stars.length) {
+                const s1 = this.stars[i];
+                const s2 = this.stars[i+1];
+                const dist = Math.hypot(s1.x - s2.x, s1.y - s2.y);
+                if (dist < 150) {
+                    ctx.moveTo(s1.x, s1.y);
+                    ctx.lineTo(s2.x, s2.y);
+                }
+            }
+        }
+        ctx.stroke();
+
         for (const s of this.stars) {
             const a = (0.2 + Math.sin(this.time * 0.008 + s.phase) * 0.25) * s.twinkle;
             ctx.fillStyle = `rgba(220, 230, 255, ${Math.max(0.04, a)})`;
             ctx.beginPath();
             ctx.arc(s.x, s.y, s.size, 0, Math.PI * 2);
             ctx.fill();
+        }
+
+        // Shooting Stars
+        if (Math.random() < 0.005) {
+            this.shootingStars.push({
+                x: Math.random() * this.width,
+                y: 0,
+                len: 40 + Math.random() * 80,
+                speed: 10 + Math.random() * 15,
+                angle: (Math.PI / 4) + (Math.random() * 0.2 - 0.1),
+                life: 1.0
+            });
+        }
+
+        for (let i = this.shootingStars.length - 1; i >= 0; i--) {
+            const ss = this.shootingStars[i];
+            ss.x -= Math.cos(ss.angle) * ss.speed;
+            ss.y += Math.sin(ss.angle) * ss.speed;
+            ss.life -= 0.02;
+
+            if (ss.life <= 0) {
+                this.shootingStars.splice(i, 1);
+                continue;
+            }
+
+            const tailX = ss.x + Math.cos(ss.angle) * ss.len;
+            const tailY = ss.y - Math.sin(ss.angle) * ss.len;
+            
+            const grad = ctx.createLinearGradient(ss.x, ss.y, tailX, tailY);
+            grad.addColorStop(0, `rgba(255, 255, 255, ${ss.life})`);
+            grad.addColorStop(1, `rgba(182, 140, 255, 0)`);
+            
+            ctx.beginPath();
+            ctx.moveTo(ss.x, ss.y);
+            ctx.lineTo(tailX, tailY);
+            ctx.strokeStyle = grad;
+            ctx.lineWidth = 1.5;
+            ctx.stroke();
         }
     }
 

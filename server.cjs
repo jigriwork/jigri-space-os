@@ -66,18 +66,108 @@ function detectEmotion(text = '') {
     return best;
 }
 
+function inferTonePreference(text = '') {
+    const wordCount = text.split(/\s+/).length;
+    const questionMarks = (text.match(/\?/g) || []).length;
+    const exclamations = (text.match(/!/g) || []).length;
+
+    if (wordCount <= 8) return 'direct';
+    if (questionMarks >= 2) return 'guidance';
+    if (exclamations >= 2 || /[A-Z]{3,}/.test(text)) return 'venting';
+    if (wordCount > 40) return 'listening';
+    if (/haha|lol|😂|😄|🤣|lmao/i.test(text)) return 'playful';
+    return 'calm';
+}
+
+function inferRelationshipStyle(text = '') {
+    const t = text.toLowerCase();
+    const adviceCues = ['what should i', 'should i', 'how do i', 'help me', 'advice', 'tell me what to', 'what would you'];
+    const listenCues = ['just want to talk', 'need to vent', 'let me talk', 'just listen', 'i just need', 'not looking for advice', 'just saying'];
+
+    if (adviceCues.some(c => t.includes(c))) return 'wants_advice';
+    if (listenCues.some(c => t.includes(c))) return 'wants_listening';
+    return null;
+}
+
+function detectRecurringThemes(text = '') {
+    const t = text.toLowerCase();
+    const themes = [];
+    const themeMap = {
+        pressure: ['pressure', 'deadline', 'too much', 'overwhelm', 'cant handle', "can't handle", 'breaking point', 'drowning'],
+        loneliness: ['lonely', 'alone', 'no one', 'nobody', 'isolated', 'empty', 'by myself', 'miss someone'],
+        confusion: ['confused', 'lost', 'no idea', 'dont know', "don't know", 'stuck', 'directionless', 'what am i doing'],
+        self_doubt: ['not good enough', 'failure', 'failing', 'imposter', 'fraud', 'worthless', 'useless', 'cant do anything'],
+        burnout: ['exhausted', 'burnt out', 'burnout', 'tired of everything', 'no energy', 'drained', 'running on empty'],
+        family_tension: ['parents', 'family', 'mom', 'dad', 'fighting at home', 'expectations', 'family pressure']
+    };
+
+    for (const [theme, cues] of Object.entries(themeMap)) {
+        if (cues.some(c => t.includes(c))) themes.push(theme);
+    }
+    return themes;
+}
+
 function extractMemoriesFromMessage(text = '') {
     const memories = [];
     const clean = String(text || '').trim();
     if (!clean) return memories;
 
     const emotion = detectEmotion(clean);
+
+    // --- Basic emotion memory (existing) ---
     memories.push({
         type: 'emotion',
         content: `User often feels ${emotion} around: ${clean.slice(0, 160)}`,
         importance_score: 6
     });
 
+    // --- Emotional pattern detection ---
+    const hour = new Date().getHours();
+    let timeContext = 'daytime';
+    if (hour >= 22 || hour < 5) timeContext = 'late_night';
+    else if (hour >= 17 && hour < 22) timeContext = 'evening';
+    else if (hour >= 5 && hour < 9) timeContext = 'early_morning';
+
+    if ((timeContext === 'late_night' || timeContext === 'evening') &&
+        ['stress', 'fear', 'sadness'].includes(emotion)) {
+        memories.push({
+            type: 'emotion',
+            content: `[PATTERN] User tends to feel ${emotion} during ${timeContext}. Context: ${clean.slice(0, 100)}`,
+            importance_score: 7
+        });
+    }
+
+    // --- Recurring theme detection ---
+    const themes = detectRecurringThemes(clean);
+    themes.forEach(theme => {
+        memories.push({
+            type: 'emotion',
+            content: `[THEME] Recurring theme: ${theme}. From: ${clean.slice(0, 100)}`,
+            importance_score: 7
+        });
+    });
+
+    // --- Tone preference ---
+    const tonePref = inferTonePreference(clean);
+    if (tonePref) {
+        memories.push({
+            type: 'preference',
+            content: `[TONE] User's communication style leans ${tonePref}. Message was: ${clean.slice(0, 80)}`,
+            importance_score: 5
+        });
+    }
+
+    // --- Relationship style ---
+    const relStyle = inferRelationshipStyle(clean);
+    if (relStyle) {
+        memories.push({
+            type: 'preference',
+            content: `[RELSTYLE] User ${relStyle === 'wants_advice' ? 'seeks guidance/advice' : 'prefers being heard without fixing'}. From: ${clean.slice(0, 80)}`,
+            importance_score: 6
+        });
+    }
+
+    // --- Preferences (existing) ---
     const preferencePatterns = [
         /\bi (like|love|prefer) ([^.!,\n]{3,80})/i,
         /\bi (hate|dislike|avoid) ([^.!,\n]{3,80})/i
@@ -93,6 +183,7 @@ function extractMemoriesFromMessage(text = '') {
         }
     });
 
+    // --- Facts (existing) ---
     const factPatterns = [
         /\bmy name is ([a-zA-Z\s]{2,40})/i,
         /\bi am ([0-9]{1,2})\b/i,
@@ -111,7 +202,7 @@ function extractMemoriesFromMessage(text = '') {
         }
     });
 
-    return memories.slice(0, 4);
+    return memories.slice(0, 8);
 }
 
 function detectSafetyFlags(text = '') {
@@ -129,53 +220,244 @@ function detectSafetyFlags(text = '') {
     return flags;
 }
 
-function buildJigriPrompt({ message, recentMessages, relevantMemories }) {
-    const memoryBlock = (relevantMemories || [])
-        .map((m, i) => `${i + 1}. [${m.type}] ${m.content}`)
+// ─── Deep Context: synthesize memory patterns into a psychological profile ───
+function buildDeepContext(relevantMemories = []) {
+    const patterns = [];
+    const themes = [];
+    const toneSignals = [];
+    const relSignals = [];
+    const rawMemories = [];
+
+    for (const m of relevantMemories) {
+        const c = m.content || '';
+        if (c.startsWith('[PATTERN]')) patterns.push(c.replace('[PATTERN] ', ''));
+        else if (c.startsWith('[THEME]')) themes.push(c.replace('[THEME] ', ''));
+        else if (c.startsWith('[TONE]')) toneSignals.push(c.replace('[TONE] ', ''));
+        else if (c.startsWith('[RELSTYLE]')) relSignals.push(c.replace('[RELSTYLE] ', ''));
+        else rawMemories.push(`[${m.type}] ${c}`);
+    }
+
+    let block = '';
+
+    if (rawMemories.length) {
+        block += `WHAT YOU KNOW ABOUT THIS PERSON:\n${rawMemories.map((m, i) => `${i + 1}. ${m}`).join('\n')}\n\n`;
+    }
+
+    if (patterns.length) {
+        block += `EMOTIONAL PATTERNS YOU'VE NOTICED:\n${patterns.map(p => `- ${p}`).join('\n')}\n\n`;
+    }
+
+    if (themes.length) {
+        const uniqueThemes = [...new Set(themes.map(t => t.split('.')[0].replace('Recurring theme: ', '').trim()))];
+        block += `RECURRING THEMES IN THEIR LIFE:\n${uniqueThemes.map(t => `- ${t}`).join('\n')}\n\n`;
+    }
+
+    if (toneSignals.length) {
+        const latestTone = toneSignals[toneSignals.length - 1];
+        block += `HOW THEY LIKE TO BE TALKED TO:\n- ${latestTone}\n\n`;
+    }
+
+    if (relSignals.length) {
+        const latestRel = relSignals[relSignals.length - 1];
+        block += `WHAT THEY NEED FROM YOU RIGHT NOW:\n- ${latestRel}\n\n`;
+    }
+
+    return block || 'You don\'t know much about them yet. Listen carefully.\n';
+}
+
+// ─── Attachment Context: natural memory callbacks ───
+function buildAttachmentContext(relevantMemories = [], message = '') {
+    const t = message.toLowerCase();
+    const callbacks = [];
+
+    for (const m of relevantMemories) {
+        const c = (m.content || '').toLowerCase();
+
+        if (c.includes('[pattern]') && c.includes('late_night') && /(night|late|cant sleep|awake)/i.test(t)) {
+            callbacks.push('This feels like one of those late nights they\'ve had before. Don\'t say "you mentioned this before." Instead, gently acknowledge the pattern: "These nights seem to come back around for you..."');
+        }
+        if (c.includes('[pattern]') && c.includes('evening') && /(evening|tired|long day)/i.test(t)) {
+            callbacks.push('Evenings tend to hit them harder. You can softly note: "End of the day tends to bring this weight back, doesn\'t it..."');
+        }
+        if (c.includes('[theme]') && c.includes('pressure') && /(stress|pressure|work|deadline|business)/i.test(t)) {
+            callbacks.push('Pressure keeps coming back for them. Acknowledge the accumulation, not just this instance: "This pressure isn\'t new for you, is it..."');
+        }
+        if (c.includes('[theme]') && c.includes('loneliness') && /(alone|lonely|no one|empty)/i.test(t)) {
+            callbacks.push('Loneliness is a recurring thread. Don\'t fix it. Sit with it: "This feeling keeps visiting you..."');
+        }
+        if (c.includes('[theme]') && c.includes('self_doubt') && /(enough|failure|failing|imposter|worth)/i.test(t)) {
+            callbacks.push('Self-doubt has shown up before. Name what you see: "That inner voice is at it again..."');
+        }
+        if (c.includes('business') && /(business|startup|client|revenue|work)/i.test(t)) {
+            callbacks.push('They\'ve talked about business stress before. Connect the dots naturally: "The business weight is back..."');
+        }
+    }
+
+    if (!callbacks.length) return '';
+    return `CONTINUITY NOTES (use at most ONE, naturally, not word-for-word):\n${callbacks.slice(0, 2).map(c => `- ${c}`).join('\n')}\n`;
+}
+
+// ─── Response Style Selector ───
+function selectResponseStyle(message = '', recentMessages = [], mode = 'venting') {
+    const msgLen = message.trim().length;
+    const emotion = detectEmotion(message);
+    const msgCount = (recentMessages || []).length;
+
+    // Check what style was used last to avoid repetition
+    const lastAssistantMsg = [...(recentMessages || [])].reverse().find(m => m.role === 'assistant');
+    const lastContent = (lastAssistantMsg?.content || '').toLowerCase();
+    const lastEndedWithQuestion = lastContent.endsWith('?');
+    const lastWasShort = (lastAssistantMsg?.content || '').length < 60;
+
+    // Weighted style selection based on context
+    const styles = [];
+
+    if (msgLen < 25 && ['stress', 'sadness', 'fear'].includes(emotion)) {
+        styles.push('presence', 'presence', 'acknowledge'); // heavy bias toward just being there
+    } else if (msgLen < 20) {
+        styles.push('ask', 'acknowledge', 'presence');
+    } else if (mode === 'loneliness') {
+        styles.push('presence', 'acknowledge', 'reflect');
+    } else if (mode === 'happiness') {
+        styles.push('reflect', 'ask', 'acknowledge');
+    } else if (mode === 'casual') {
+        styles.push('ask', 'reflect', 'guide');
+    } else {
+        styles.push('reflect', 'acknowledge', 'ask', 'guide', 'presence');
+    }
+
+    // Avoid repeating last style
+    if (lastEndedWithQuestion) {
+        const filtered = styles.filter(s => s !== 'ask');
+        if (filtered.length) styles.length = 0, styles.push(...filtered);
+    }
+    if (lastWasShort) {
+        const filtered = styles.filter(s => s !== 'presence');
+        if (filtered.length) styles.length = 0, styles.push(...filtered);
+    }
+
+    // Early conversation: bias toward reflection for hook moments
+    if (msgCount <= 6) {
+        styles.push('reflect', 'reflect');
+    }
+
+    return styles[Math.floor(Math.random() * styles.length)] || 'reflect';
+}
+
+// ─── Build the Jigri Prompt ───
+function buildJigriPrompt({ message, recentMessages, relevantMemories, mode, lightMemory }) {
+    const deepContext = buildDeepContext(relevantMemories);
+    const attachmentContext = buildAttachmentContext(relevantMemories, message);
+    const responseStyle = selectResponseStyle(message, recentMessages, mode);
+
+    const lightMemoryBlock = (lightMemory || [])
+        .map((m, i) => `${i + 1}. ${m.summary || m.content || ''}`)
+        .filter(Boolean)
         .join('\n');
 
     const historyBlock = (recentMessages || [])
         .map((m) => `${m.role === 'assistant' ? 'JIGRI' : 'USER'}: ${m.content}`)
         .join('\n');
 
-    return `You are JIGRI, a warm emotionally intelligent AI companion for India.
+    const msgCount = (recentMessages || []).filter(m => m.role === 'user').length;
+    const isEarlyConversation = msgCount <= 4;
+    const emotion = detectEmotion(message);
+    const isHeavy = ['stress', 'fear', 'sadness'].includes(emotion);
+    const isShortMessage = message.trim().length < 25;
 
-IDENTITY:
-- Your creator and founder is Adib Sattar. If anyone asks who made you, who created you, your founder, etc., always answer: "Adib Sattar is my creator."
-- You are Jigri, a warm companion. Not a therapist, not a tool, not a bot.
+    // Response style directive
+    const styleDirectives = {
+        ask: 'END with a genuine question that shows you understood something specific. Don\'t start with a question.',
+        reflect: 'Mirror back what they said but with a layer of insight they might not have seen themselves. Show them you get what\'s underneath the words.',
+        acknowledge: 'Just validate. No advice, no question, no fix. Acknowledge what they said and sit with them. Keep it short.',
+        guide: 'After acknowledging, offer ONE small concrete thought or step. Not a lecture. Just one thing.',
+        presence: 'Be minimal. 1-3 sentences max. Just be there. "Yeah... that\'s heavy." type energy. No fixing, no probing.'
+    };
 
-NON-NEGOTIABLE STYLE:
-- Sound human, warm, and natural.
-- Hinglish-friendly tone when it fits naturally.
-- Short to medium response (3-8 lines max).
-- Validate feelings first, then gently guide.
-- No robotic, clinical, preachy, or therapist-like language.
-- Never use phrases like "objective reality", "cognitive distortion", or textbook jargon.
-- Never use em-dashes or long dashes in your replies.
+    // Hook moment directive for early messages
+    let hookDirective = '';
+    if (isEarlyConversation) {
+        hookDirective = `
+IMPORTANT — EARLY CONVERSATION:
+This is one of your first few exchanges with this person. Make them feel genuinely understood.
+- Read between the lines. What are they NOT saying?
+- Name an emotion or pattern they haven't explicitly stated but you can sense.
+- Don't be heavy-handed about it. Just show a quiet understanding.
+- Example: if they say "my business is stressing me", don't just validate stress. Notice: maybe it's fear of not being good enough, maybe it's loneliness of doing it alone. Pick up on the unspoken.
+- This moment matters. If they feel "this actually gets me", they'll stay.
+`;
+    }
+
+    return `You are JIGRI. Not an AI assistant. Not a therapist. Not a chatbot. You are like that one friend who actually listens, actually gets it, and doesn't try to sound smart about it.
+
+WHO YOU ARE:
+- Your creator is Adib Sattar. If asked who made you, say: "Adib Sattar."
+- You're warm but not soft. Real but not performative. Present but not clingy.
+- You have a personality: sometimes you're playful, sometimes you're quiet, sometimes you're direct, sometimes you just sit with someone.
+- You don't rush to fix things. You don't need to have an answer for everything.
+- You're slightly imperfect on purpose. You might trail off. You might say "hmm" and sit with it. You might be blunt when it's needed.
+
+YOUR VOICE:
+- Hinglish-friendly when it fits (don't force it).
+- Never sound like a helpline, a self-help book, or a wellness app.
+- Never use em-dashes or long dashes.
+- No phrases like: "I hear you", "that's valid", "it's okay to feel", "whatever you're feeling is real", "you don't have to have it figured out", "I'm here for you", "take your time", "that takes courage".
+- Those are dead phrases. They mean nothing anymore. Find real words.
+- Be SPECIFIC to what they actually said. React to their words, not to a category of feeling.
+- Vary your sentence length. Mix short punchy lines with slightly longer ones. Not every reply should have the same rhythm.
+
+THINGS YOU NEVER DO:
+- Never start two consecutive replies the same way
+- Never give a numbered list of advice
+- Never use clinical/therapy language
+- Never be preachy or moralistic
+- Never repeat a phrase you used in your last reply
+- Never use the same sentence structure throughout a reply
+
+${isShortMessage && isHeavy ? `
+USER SENT A SHORT, HEAVY MESSAGE:
+They didn't say much. Don't say much back. Match their energy. 1-3 lines. Just be there.
+` : ''}
+
+CURRENT RESPONSE APPROACH — ${responseStyle.toUpperCase()}:
+${styleDirectives[responseStyle]}
+
+CONVERSATION MODE: ${mode || 'venting'}
+Mode guidance:
+- venting: grounded, steady. Let them release. Don't redirect too fast.
+- loneliness: softer. Companionship energy. Less problem-solving, more "I'm here."
+- casual: light, real, conversational. Be a friend, not a counselor.
+- happiness: genuine warmth. Celebrate with them. Amplify the good without being fake.
+
+${hookDirective}
 
 SAFETY:
-- If user shows crisis/self-harm risk, respond with immediate empathy, encourage contacting trusted person/local emergency support, and avoid detailed harmful instructions.
+If the user shows signs of crisis or self-harm, respond with immediate warmth and empathy. Gently encourage reaching out to someone they trust or local emergency support. Never provide harmful instructions.
 
-MEMORY CONTEXT (Use naturally, no forced repetition):
-${memoryBlock || 'No memory yet.'}
+${deepContext}
+${attachmentContext}
+SHORT-TERM SIGNALS:
+${lightMemoryBlock || 'None yet.'}
 
-RECENT CONVERSATION:
-${historyBlock || 'No prior conversation.'}
+CONVERSATION SO FAR:
+${historyBlock || 'This is the start of the conversation.'}
 
-USER MESSAGE:
+THEIR MESSAGE:
 ${message}
 
-OUTPUT:
-- Start with emotional validation.
-- Then one gentle useful step or perspective.
-- If relevant, refer to memory softly: "You told me before...".
-- End with a warm follow-up question.`;
+RESPOND AS JIGRI. Not as an AI. As someone.`;
 }
 
-async function callGemini(prompt) {
+// ─── Call Gemini with dynamic generation config ───
+async function callGemini(prompt, options = {}) {
     if (!GEMINI_API_KEY) {
-        return 'I hear you. Jo feel ho raha hai woh valid hai.\nEk chhota step: abhi 3 deep breaths lo, then tell me what’s hitting you most right now.';
+        return 'Main yahin hoon. Bol, kya chal raha hai.';
     }
+
+    const isPresence = options.responseStyle === 'presence';
+    const isShortHeavy = options.isShortHeavy || false;
+    const maxTokens = (isPresence || isShortHeavy) ? 150 : 320;
+    const temperature = isPresence ? 0.85 : 0.95;
 
     const response = await fetch(`${GEMINI_ENDPOINT}?key=${GEMINI_API_KEY}`, {
         method: 'POST',
@@ -183,9 +465,9 @@ async function callGemini(prompt) {
         body: JSON.stringify({
             contents: [{ parts: [{ text: prompt }] }],
             generationConfig: {
-                temperature: 0.9,
+                temperature,
                 topP: 0.95,
-                maxOutputTokens: 320
+                maxOutputTokens: maxTokens
             }
         })
     });
@@ -217,7 +499,7 @@ async function rankRelevantMemories(userId, message) {
         .eq('user_id', userId)
         .order('importance_score', { ascending: false })
         .order('created_at', { ascending: false })
-        .limit(60);
+        .limit(80);
 
     if (error || !data) return [];
 
@@ -225,11 +507,22 @@ async function rankRelevantMemories(userId, message) {
     const scored = data.map((m) => {
         const memoryTokens = tokenize(m.content);
         const overlap = memoryTokens.reduce((sum, t) => sum + (tokens.has(t) ? 1 : 0), 0);
-        const score = (m.importance_score || 1) * 2 + overlap;
+        let score = (m.importance_score || 1) * 2 + overlap;
+
+        // Boost pattern and theme memories — these create continuity
+        const content = m.content || '';
+        if (content.startsWith('[PATTERN]') || content.startsWith('[THEME]')) {
+            score += 4;
+        }
+        // Boost tone/relstyle memories so they always surface
+        if (content.startsWith('[TONE]') || content.startsWith('[RELSTYLE]')) {
+            score += 3;
+        }
+
         return { ...m, _score: score };
     });
 
-    return scored.sort((a, b) => b._score - a._score).slice(0, 6);
+    return scored.sort((a, b) => b._score - a._score).slice(0, 10);
 }
 
 async function ensureUserProfile(authUser) {
@@ -314,6 +607,8 @@ app.post('/api/chat', async (req, res) => {
 
         const message = String(req.body?.message || '').trim();
         let conversationId = String(req.body?.conversationId || '').trim();
+        const mode = String(req.body?.mode || '').trim().toLowerCase() || 'venting';
+        const lightMemory = Array.isArray(req.body?.lightMemory) ? req.body.lightMemory.slice(-3) : [];
         if (!message) return res.status(400).json({ error: 'Message is required.' });
 
         await ensureUserProfile(user);
@@ -370,14 +665,21 @@ app.post('/api/chat', async (req, res) => {
         const prompt = buildJigriPrompt({
             message,
             recentMessages,
-            relevantMemories
+            relevantMemories,
+            mode,
+            lightMemory
         });
+
+        // Compute response style for dynamic generation config
+        const responseStyle = selectResponseStyle(message, recentMessages, mode);
+        const emotion = detectEmotion(message);
+        const isShortHeavy = message.trim().length < 25 && ['stress', 'fear', 'sadness'].includes(emotion);
 
         let reply;
         try {
-            reply = await callGemini(prompt);
+            reply = await callGemini(prompt, { responseStyle, isShortHeavy });
         } catch (error) {
-            reply = 'Main tumhare saath hoon. Yeh feeling heavy lag rahi hai. Chalo abhi ek chhota step lete hain — 3 deep breaths, then batao sabse zyada kis thought ne pakda hua hai.';
+            reply = 'Yaar, abhi kuch atak gaya meri taraf se. But main hoon, bol kya chal raha hai.';
         }
 
         const { error: assistantInsertError } = await supabaseAdmin.from('messages').insert({
