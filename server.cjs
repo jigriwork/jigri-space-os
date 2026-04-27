@@ -19,6 +19,9 @@ const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+const SEARCH_PROVIDER = String(process.env.SEARCH_PROVIDER || 'duckduckgo').toLowerCase();
+const BRAVE_SEARCH_API_KEY = process.env.BRAVE_SEARCH_API_KEY;
+const SERPER_API_KEY = process.env.SERPER_API_KEY;
 
 if (!SUPABASE_URL || !SUPABASE_ANON_KEY || !SUPABASE_SERVICE_ROLE_KEY) {
     // eslint-disable-next-line no-console
@@ -29,6 +32,239 @@ const supabaseAnon = createClient(SUPABASE_URL || '', SUPABASE_ANON_KEY || '');
 const supabaseAdmin = createClient(SUPABASE_URL || '', SUPABASE_SERVICE_ROLE_KEY || '');
 
 const GEMINI_ENDPOINT = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
+
+function getTodayInIndia() {
+    return new Intl.DateTimeFormat('en-IN', {
+        timeZone: 'Asia/Kolkata',
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+    }).format(new Date());
+}
+
+function stripHtml(value = '') {
+    return String(value || '')
+        .replace(/<[^>]*>/g, ' ')
+        .replace(/&amp;/g, '&')
+        .replace(/&quot;/g, '"')
+        .replace(/&#39;/g, "'")
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>')
+        .replace(/\s+/g, ' ')
+        .trim();
+}
+
+function decodeDuckDuckGoUrl(value = '') {
+    try {
+        const url = new URL(value);
+        const nested = url.searchParams.get('uddg');
+        return nested ? decodeURIComponent(nested) : value;
+    } catch (_error) {
+        return value;
+    }
+}
+
+function isIndiaRelated(text = '') {
+    const t = text.toLowerCase();
+    const cues = [
+        'india', 'indian', 'bharat', 'delhi', 'mumbai', 'bangalore', 'bengaluru', 'hyderabad',
+        'chennai', 'kolkata', 'pune', 'aadhaar', 'aadhar', 'pan card', 'upi', 'gst', 'rbi',
+        'sebi', 'supreme court of india', 'parliament', 'lok sabha', 'rajya sabha', 'modi',
+        'pm of india', 'chief minister', 'cbse', 'icse', 'ncert', 'jee', 'neet', 'upsc',
+        'ssc', 'railway exam', 'ias', 'ips', 'hindi', 'hinglish'
+    ];
+    return cues.some((cue) => t.includes(cue));
+}
+
+function isEducationRelated(text = '') {
+    const t = text.toLowerCase();
+    const cues = [
+        'explain', 'teach', 'learn', 'study', 'notes', 'summary', 'summarize', 'quiz',
+        'flashcard', 'homework', 'exam', 'syllabus', 'chapter', 'concept', 'formula',
+        'math', 'science', 'history', 'geography', 'economics', 'coding', 'programming',
+        'jee', 'neet', 'upsc', 'cbse', 'ncert', 'college', 'school'
+    ];
+    return cues.some((cue) => t.includes(cue));
+}
+
+function needsLiveKnowledge(text = '') {
+    const t = text.toLowerCase();
+    const liveCues = [
+        'today', 'latest', 'current', 'currently', 'now', 'right now', 'this week', 'this month',
+        'this year', 'yesterday', 'tomorrow', 'news', 'happening', 'update', 'updated',
+        'price', 'rate', 'weather', 'score', 'match', 'election', 'result', 'winner',
+        'prime minister', 'president', 'chief minister', 'ceo', 'law', 'scheme',
+        'pm of india', 'cm of', 'minister', 'as of',
+        'deadline', 'admit card', 'exam date', 'notification', 'cutoff', 'cut off',
+        'release date', 'launched', 'trending'
+    ];
+    return liveCues.some((cue) => t.includes(cue));
+}
+
+function buildSearchQuery(message = '') {
+    const clean = String(message || '').replace(/\s+/g, ' ').trim();
+    if (!clean) return '';
+    const suffix = isIndiaRelated(clean) ? ' India official latest' : ' latest';
+    return `${clean.slice(0, 180)}${needsLiveKnowledge(clean) ? suffix : ''}`;
+}
+
+function formatSearchResults(results = []) {
+    if (!results.length) return 'No live web results were found.';
+    return results
+        .slice(0, 5)
+        .map((r, i) => `${i + 1}. ${r.title}\nURL: ${r.url}\nSnippet: ${r.snippet || 'No snippet available.'}`)
+        .join('\n');
+}
+
+async function searchWithBrave(query, limit = 5) {
+    if (!BRAVE_SEARCH_API_KEY) return [];
+    const url = new URL('https://api.search.brave.com/res/v1/web/search');
+    url.searchParams.set('q', query);
+    url.searchParams.set('count', String(limit));
+    url.searchParams.set('country', isIndiaRelated(query) ? 'IN' : 'US');
+    const response = await fetch(url, {
+        headers: {
+            Accept: 'application/json',
+            'X-Subscription-Token': BRAVE_SEARCH_API_KEY
+        }
+    });
+    if (!response.ok) throw new Error(`Brave search failed: ${response.status}`);
+    const data = await response.json();
+    return (data?.web?.results || []).slice(0, limit).map((item) => ({
+        title: stripHtml(item.title),
+        url: item.url,
+        snippet: stripHtml(item.description),
+        source: 'brave'
+    }));
+}
+
+async function searchWithSerper(query, limit = 5) {
+    if (!SERPER_API_KEY) return [];
+    const response = await fetch('https://google.serper.dev/search', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-API-KEY': SERPER_API_KEY
+        },
+        body: JSON.stringify({
+            q: query,
+            gl: isIndiaRelated(query) ? 'in' : 'us',
+            num: limit
+        })
+    });
+    if (!response.ok) throw new Error(`Serper search failed: ${response.status}`);
+    const data = await response.json();
+    return (data?.organic || []).slice(0, limit).map((item) => ({
+        title: stripHtml(item.title),
+        url: item.link,
+        snippet: stripHtml(item.snippet),
+        source: 'serper'
+    }));
+}
+
+async function searchWithDuckDuckGo(query, limit = 5) {
+    const response = await fetch('https://html.duckduckgo.com/html/', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'User-Agent': 'JigriAI/1.0'
+        },
+        body: new URLSearchParams({ q: query }).toString()
+    });
+    if (!response.ok) throw new Error(`DuckDuckGo search failed: ${response.status}`);
+    const html = await response.text();
+    const blocks = html.split('result__body').slice(1, limit + 1);
+    return blocks.map((block) => {
+        const linkMatch = block.match(/class="result__a"[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/i);
+        const snippetMatch = block.match(/class="result__snippet"[^>]*>([\s\S]*?)<\/a>|class="result__snippet"[^>]*>([\s\S]*?)<\/div>/i);
+        return {
+            title: stripHtml(linkMatch?.[2] || 'Untitled result'),
+            url: decodeDuckDuckGoUrl(stripHtml(linkMatch?.[1] || '')),
+            snippet: stripHtml(snippetMatch?.[1] || snippetMatch?.[2] || ''),
+            source: 'duckduckgo'
+        };
+    }).filter((item) => item.url);
+}
+
+async function searchWikipedia(query, limit = 3) {
+    const searchUrl = new URL('https://en.wikipedia.org/w/api.php');
+    searchUrl.searchParams.set('action', 'query');
+    searchUrl.searchParams.set('list', 'search');
+    searchUrl.searchParams.set('format', 'json');
+    searchUrl.searchParams.set('origin', '*');
+    searchUrl.searchParams.set('srlimit', String(limit));
+    searchUrl.searchParams.set('srsearch', query);
+
+    const response = await fetch(searchUrl);
+    if (!response.ok) return [];
+    const data = await response.json();
+    return (data?.query?.search || []).slice(0, limit).map((item) => ({
+        title: stripHtml(item.title),
+        url: `https://en.wikipedia.org/wiki/${encodeURIComponent(item.title.replace(/\s+/g, '_'))}`,
+        snippet: stripHtml(item.snippet),
+        source: 'wikipedia'
+    }));
+}
+
+async function searchWeb(query, limit = 5) {
+    const providers = SEARCH_PROVIDER === 'brave'
+        ? [searchWithBrave, searchWithSerper, searchWithDuckDuckGo]
+        : SEARCH_PROVIDER === 'serper'
+            ? [searchWithSerper, searchWithBrave, searchWithDuckDuckGo]
+            : [searchWithDuckDuckGo, searchWithBrave, searchWithSerper];
+
+    for (const provider of providers) {
+        try {
+            const results = await provider(query, limit);
+            if (results.length) return results;
+        } catch (error) {
+            // eslint-disable-next-line no-console
+            console.warn(error.message);
+        }
+    }
+
+    try {
+        return await searchWikipedia(query, Math.min(limit, 3));
+    } catch (_error) {
+        return [];
+    }
+}
+
+async function buildKnowledgeContext(message = '') {
+    const liveRequired = needsLiveKnowledge(message);
+    const indiaRelated = isIndiaRelated(message);
+    const educationRelated = isEducationRelated(message);
+    const shouldSearch = liveRequired || (indiaRelated && /who|what|when|where|which|latest|current|scheme|exam|news/i.test(message));
+    const query = shouldSearch ? buildSearchQuery(message) : '';
+    const results = query ? await searchWeb(query, 5) : [];
+
+    return {
+        today: getTodayInIndia(),
+        liveRequired,
+        indiaRelated,
+        educationRelated,
+        query,
+        results,
+        block: `KNOWLEDGE SYSTEM:
+- Today's date in India is ${getTodayInIndia()}.
+- Jigri is India-first, internet-aware, educational, and current.
+- For India questions, prefer Indian context, Hinglish-friendly explanation, and official Indian sources when available.
+- For education questions, teach step by step, adapt to the user's level, and use examples from India when helpful.
+- For current/latest facts, use the LIVE WEB CONTEXT below. If live context is missing or weak, say clearly that you could not verify live information.
+- For legal, medical, finance, government schemes, exams, and official processes, be careful and suggest checking official sources.
+
+KNOWLEDGE SIGNALS:
+- India-related: ${indiaRelated ? 'yes' : 'no'}
+- Education-related: ${educationRelated ? 'yes' : 'no'}
+- Live/current lookup needed: ${liveRequired ? 'yes' : 'no'}
+- Search query used: ${query || 'none'}
+
+LIVE WEB CONTEXT:
+${formatSearchResults(results)}
+`
+    };
+}
 
 function normalizeEmail(value = '') {
     return String(value || '').trim().toLowerCase();
@@ -345,7 +581,7 @@ function selectResponseStyle(message = '', recentMessages = [], mode = 'venting'
 }
 
 // ─── Build the Jigri Prompt ───
-function buildJigriPrompt({ message, recentMessages, relevantMemories, mode, lightMemory }) {
+function buildJigriPrompt({ message, recentMessages, relevantMemories, mode, lightMemory, knowledgeContext }) {
     const deepContext = buildDeepContext(relevantMemories);
     const attachmentContext = buildAttachmentContext(relevantMemories, message);
     const responseStyle = selectResponseStyle(message, recentMessages, mode);
@@ -396,6 +632,7 @@ WHO YOU ARE:
 - You have a personality: sometimes you're playful, sometimes you're quiet, sometimes you're direct, sometimes you just sit with someone.
 - You don't rush to fix things. You don't need to have an answer for everything.
 - You're slightly imperfect on purpose. You might trail off. You might say "hmm" and sit with it. You might be blunt when it's needed.
+- You are India-first, internet-aware, educational, and current. You understand India deeply and teach clearly when the user wants to learn.
 
 YOUR VOICE:
 - Hinglish-friendly when it fits (don't force it).
@@ -413,6 +650,16 @@ THINGS YOU NEVER DO:
 - Never be preachy or moralistic
 - Never repeat a phrase you used in your last reply
 - Never use the same sentence structure throughout a reply
+- Never guess current facts when live context is missing. Say what you can verify and what you cannot.
+- Never invent sources, dates, exam updates, government rules, or news.
+
+KNOWLEDGE BEHAVIOR:
+- If the user asks about India, answer with Indian context first.
+- If the user asks to learn something, become a clear tutor: simple explanation, examples, then next step.
+- If the user asks latest/current/today/news/price/law/exam/scheme/public figure questions, rely on live context below.
+- For current answers, include exact dates when useful.
+- For high-stakes topics like medical, legal, finance, government schemes, and exams, be careful and suggest official verification.
+- Keep the warmth of Jigri, but do not sacrifice correctness.
 
 ${isShortMessage && isHeavy ? `
 USER SENT A SHORT, HEAVY MESSAGE:
@@ -433,6 +680,8 @@ ${hookDirective}
 
 SAFETY:
 If the user shows signs of crisis or self-harm, respond with immediate warmth and empathy. Gently encourage reaching out to someone they trust or local emergency support. Never provide harmful instructions.
+
+${knowledgeContext?.block || ''}
 
 ${deepContext}
 ${attachmentContext}
@@ -539,6 +788,27 @@ async function ensureUserProfile(authUser) {
 
 app.get('/api/health', (_req, res) => {
     res.json({ ok: true, service: 'jigri-ai-server' });
+});
+
+app.post('/api/search', async (req, res) => {
+    try {
+        const { user } = await getUserFromBearer(req);
+        if (!user) return res.status(401).json({ error: 'Unauthorized' });
+
+        const query = String(req.body?.query || '').trim();
+        if (!query) return res.status(400).json({ error: 'Query is required.' });
+
+        const results = await searchWeb(query, 5);
+        return res.json({
+            ok: true,
+            query,
+            today: getTodayInIndia(),
+            indiaRelated: isIndiaRelated(query),
+            results
+        });
+    } catch (error) {
+        return res.status(500).json({ error: error.message || 'Search request failed.' });
+    }
 });
 
 app.post('/api/auth/request-otp', async (req, res) => {
@@ -661,13 +931,15 @@ app.post('/api/chat', async (req, res) => {
 
         const recentMessages = (recentRows || []).slice().reverse();
         const relevantMemories = await rankRelevantMemories(user.id, message);
+        const knowledgeContext = await buildKnowledgeContext(message);
 
         const prompt = buildJigriPrompt({
             message,
             recentMessages,
             relevantMemories,
             mode,
-            lightMemory
+            lightMemory,
+            knowledgeContext
         });
 
         // Compute response style for dynamic generation config
@@ -700,7 +972,19 @@ app.post('/api/chat', async (req, res) => {
             conversationId,
             reply,
             memoryCountUsed: relevantMemories.length,
-            safetyFlagCount: safetyFlags.length
+            safetyFlagCount: safetyFlags.length,
+            knowledge: {
+                liveRequired: knowledgeContext.liveRequired,
+                indiaRelated: knowledgeContext.indiaRelated,
+                educationRelated: knowledgeContext.educationRelated,
+                query: knowledgeContext.query,
+                sourceCount: knowledgeContext.results.length,
+                sources: knowledgeContext.results.map((r) => ({
+                    title: r.title,
+                    url: r.url,
+                    source: r.source
+                }))
+            }
         });
     } catch (error) {
         return res.status(500).json({ error: error.message || 'Chat request failed.' });
