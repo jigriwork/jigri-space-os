@@ -125,6 +125,8 @@ export default class GeminiProvider extends AIProvider {
         const mode = options?.mode || this.detectConversationMode(userText, thoughtType, this.detectEmotion(userText));
         const recentTurns = Array.isArray(options?.recentTurns) ? options.recentTurns : [];
         const lightMemory = Array.isArray(options?.lightMemory) ? options.lightMemory : [];
+        const responseStyle = options?.responseStyle || 'soft';
+        const styleInstruction = options?.styleInstruction || '';
 
         // Try 1: Server API (requires auth + backend running)
         if (accessToken) {
@@ -139,6 +141,8 @@ export default class GeminiProvider extends AIProvider {
                         message: userText,
                         conversationId,
                         mode,
+                        responseStyle,
+                        styleInstruction,
                         recentTurns,
                         lightMemory
                     })
@@ -161,6 +165,8 @@ export default class GeminiProvider extends AIProvider {
             try {
                 const reply = await this._callGeminiDirect(userText, {
                     mode,
+                    responseStyle,
+                    styleInstruction,
                     recentTurns,
                     lightMemory,
                     thoughtType
@@ -175,7 +181,7 @@ export default class GeminiProvider extends AIProvider {
 
         // Try 3: Pattern-matching fallback (no AI, last resort)
         return {
-            reply: this._fallbackDefusion(userText, { thoughtType, mode, recentTurns, lightMemory }),
+            reply: this._fallbackDefusion(userText, { thoughtType, mode, recentTurns, lightMemory, responseStyle }),
             conversationId: conversationId || null
         };
     }
@@ -184,6 +190,8 @@ export default class GeminiProvider extends AIProvider {
         const mode = options.mode || 'venting';
         const recentTurns = options.recentTurns || [];
         const lightMemory = options.lightMemory || [];
+        const responseStyle = options.responseStyle || 'soft';
+        const styleInstruction = options.styleInstruction || 'Respond with a warm, gentle, slow presence.';
 
         const historyBlock = recentTurns
             .slice(-8)
@@ -231,6 +239,10 @@ CONVERSATION MODE: ${mode}
 - loneliness: softer. Companionship energy.
 - casual: light, real, conversational.
 - happiness: genuine warmth. Celebrate with them.
+
+USER PREFERENCE:
+- Response style: ${responseStyle}
+- ${styleInstruction}
 
 ${msgCount <= 3 ? `EARLY CONVERSATION: Make them feel genuinely understood. Read between the lines. Name an emotion they haven't explicitly stated but you can sense.\n` : ''}
 

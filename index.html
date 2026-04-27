@@ -49,6 +49,57 @@
     </div>
   </section>
 
+  <section id="onboarding-screen" class="hidden" aria-modal="true" role="dialog" aria-label="Set up Jigri">
+    <div id="onboarding-card">
+      <button id="onboarding-skip" type="button" aria-label="Skip setup">Skip</button>
+      <div class="onboarding-mark" aria-hidden="true">J</div>
+      <span id="onboarding-kicker">first room</span>
+      <h2>How should Jigri sit with you?</h2>
+
+      <div class="onboarding-step active" data-step="0">
+        <p>Pick the energy for the first reply.</p>
+        <div class="onboarding-options">
+          <button class="onboarding-option active" type="button" data-pref="style" data-value="soft">
+            <strong>Soft</strong>
+            <span>Warm, gentle, slow.</span>
+          </button>
+          <button class="onboarding-option" type="button" data-pref="style" data-value="direct">
+            <strong>Direct</strong>
+            <span>Clear, honest, no over-talking.</span>
+          </button>
+          <button class="onboarding-option" type="button" data-pref="style" data-value="brother">
+            <strong>Big brother</strong>
+            <span>Protective, real, lightly Hinglish.</span>
+          </button>
+          <button class="onboarding-option" type="button" data-pref="style" data-value="quiet">
+            <strong>Quiet</strong>
+            <span>Less advice. More presence.</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="onboarding-step" data-step="1">
+        <p>Should Jigri remember small things on this device?</p>
+        <div class="onboarding-options onboarding-options-two">
+          <button class="onboarding-option active" type="button" data-pref="memory" data-value="local">
+            <strong>Remember locally</strong>
+            <span>Keep tiny signals for this browser.</span>
+          </button>
+          <button class="onboarding-option" type="button" data-pref="memory" data-value="private">
+            <strong>Private mode</strong>
+            <span>No memory nudges.</span>
+          </button>
+        </div>
+      </div>
+
+      <div id="onboarding-progress" aria-hidden="true">
+        <span class="active"></span>
+        <span></span>
+      </div>
+      <button id="onboarding-next" type="button">Continue</button>
+    </div>
+  </section>
+
   <div id="jigri-app" class="hidden">
     <canvas id="bg-canvas" aria-hidden="true"></canvas>
     <canvas id="main-canvas" aria-hidden="true"></canvas>

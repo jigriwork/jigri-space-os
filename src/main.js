@@ -9,6 +9,12 @@ const homeScreen = document.getElementById('home-screen');
 const homeStars = document.getElementById('home-stars');
 const homeCTA = document.getElementById('home-cta');
 const homeIntentions = document.getElementById('home-intentions');
+const onboardingScreen = document.getElementById('onboarding-screen');
+const onboardingSkip = document.getElementById('onboarding-skip');
+const onboardingNext = document.getElementById('onboarding-next');
+const onboardingSteps = document.querySelectorAll('.onboarding-step');
+const onboardingOptions = document.querySelectorAll('.onboarding-option');
+const onboardingProgress = document.getElementById('onboarding-progress');
 const jigriApp = document.getElementById('jigri-app');
 
 const bgCanvas = document.getElementById('bg-canvas');
@@ -60,6 +66,12 @@ let authInviteShown = false;
 let authPromptInFlight = false;
 let authPromptSkippedAt = 0;
 let selectedIntention = 'vent';
+let onboardingStep = 0;
+let onboardingPrefs = {
+    completed: false,
+    style: 'soft',
+    memory: 'local'
+};
 let ritualActive = false;
 let releasedSparks = 0;
 let ritualType = 'sparks';
@@ -67,6 +79,7 @@ let controlsOpen = false;
 
 const recentTurns = [];
 const lightMemory = [];
+const ONBOARDING_KEY = 'jigri:onboarding:v1';
 
 const INTENTION_COPY = {
     vent: {
@@ -205,7 +218,8 @@ async function init() {
 
     // Welcome greeting — Jigri speaks first
     setTimeout(() => {
-        const greetings = intention.greeting || [
+        const styledGreetings = getStyledGreetings(intention);
+        const greetings = styledGreetings.length ? styledGreetings : [
             'Hey. What\'s going on today?',
             'Hi. How\'s your day been?'
         ];
@@ -221,6 +235,61 @@ function sleep(ms) {
 
 function pickOne(list) {
     return list[Math.floor(Math.random() * list.length)];
+}
+
+function loadOnboardingPrefs() {
+    try {
+        const saved = JSON.parse(localStorage.getItem(ONBOARDING_KEY) || 'null');
+        if (!saved || typeof saved !== 'object') return;
+        onboardingPrefs = {
+            completed: Boolean(saved.completed),
+            style: ['soft', 'direct', 'brother', 'quiet'].includes(saved.style) ? saved.style : 'soft',
+            memory: ['local', 'private'].includes(saved.memory) ? saved.memory : 'local'
+        };
+    } catch (_e) {
+        onboardingPrefs = { completed: false, style: 'soft', memory: 'local' };
+    }
+}
+
+function saveOnboardingPrefs(completed = onboardingPrefs.completed) {
+    onboardingPrefs.completed = completed;
+    localStorage.setItem(ONBOARDING_KEY, JSON.stringify(onboardingPrefs));
+}
+
+function getStyledGreetings(intention) {
+    const base = intention?.greeting || [];
+    if (onboardingPrefs.style === 'direct') {
+        return [
+            'Start with the main thing. What happened?',
+            'Tell me the real part first. We can sort it after.',
+            'Okay. No dressing it up. What is going on?'
+        ];
+    }
+    if (onboardingPrefs.style === 'brother') {
+        return [
+            'Chal, bata. I am right here.',
+            'Bol. Jo bhi hai, seedha bol.',
+            'Aaja. Start with the part that is bothering you most.'
+        ];
+    }
+    if (onboardingPrefs.style === 'quiet') {
+        return [
+            'I am here. Say only what you can.',
+            'No rush. Start small.',
+            'Just one line is enough to begin.'
+        ];
+    }
+    return base;
+}
+
+function getStyleInstruction() {
+    const styles = {
+        soft: 'Respond with a warm, gentle, slow presence.',
+        direct: 'Respond clearly and honestly. Be kind, but do not over-soften.',
+        brother: 'Respond like a protective big brother or close friend. Hinglish is welcome when natural.',
+        quiet: 'Respond with fewer words. Less advice, more presence.'
+    };
+    return styles[onboardingPrefs.style] || styles.soft;
 }
 
 function setEmotionalState(emotion = 'calm', intensity = 0.35) {
@@ -336,7 +405,47 @@ function switchMood(intention) {
     dumpInput?.focus();
 }
 
+function renderOnboarding() {
+    onboardingSteps.forEach((step) => {
+        step.classList.toggle('active', Number(step.dataset.step) === onboardingStep);
+    });
+    onboardingProgress?.querySelectorAll('span').forEach((dot, index) => {
+        dot.classList.toggle('active', index <= onboardingStep);
+    });
+    if (onboardingNext) {
+        onboardingNext.textContent = onboardingStep >= onboardingSteps.length - 1 ? 'Enter Jigri' : 'Continue';
+    }
+    onboardingOptions.forEach((option) => {
+        const pref = option.dataset.pref;
+        const value = option.dataset.value;
+        option.classList.toggle('active', onboardingPrefs[pref] === value);
+    });
+}
+
+function openOnboarding() {
+    onboardingStep = 0;
+    renderOnboarding();
+    onboardingScreen?.classList.remove('hidden');
+}
+
+function closeOnboarding() {
+    onboardingScreen?.classList.add('hidden');
+}
+
+function startAppFromHome() {
+    const intention = INTENTION_COPY[selectedIntention] || INTENTION_COPY.vent;
+    setEmotionalState(intention.emotion, intention.intensity);
+    homeScreen.classList.add('fade-out');
+    closeOnboarding();
+    setTimeout(() => {
+        homeScreen.classList.add('hidden');
+        jigriApp.classList.remove('hidden');
+        init();
+    }, 540);
+}
+
 function trackLightMemory(userText, emotion = 'stress') {
+    if (onboardingPrefs.memory === 'private') return;
     const text = userText.trim();
     if (!text || text.length < 12) return;
 
@@ -374,6 +483,7 @@ function trackRecentTurn(role, content, meta = {}) {
 }
 
 function maybeShowAuthInvite() {
+    if (onboardingPrefs.memory === 'private') return;
     if (authInviteShown) return;
     authInviteShown = true;
     // Delay the auth invite so it doesn't stack right after a reply
@@ -388,6 +498,7 @@ function maybeShowAuthInvite() {
 }
 
 function maybeTriggerAuthAfterReply() {
+    if (onboardingPrefs.memory === 'private') return;
     const hasSession = !!auth.getAccessToken();
     if (hasSession || authPromptInFlight) return;
 
@@ -508,6 +619,7 @@ function closeMoodPanel() {
 function showHome() {
     closeRitual();
     closeMoodPanel();
+    closeOnboarding();
     jigriApp.classList.add('hidden');
     homeScreen.classList.remove('hidden', 'fade-out');
     chooseIntention(selectedIntention);
@@ -886,6 +998,8 @@ async function sendMessage() {
         accessToken: accessToken || null,
         conversationId: auth.getConversationId(),
         mode: conversationMode,
+        responseStyle: onboardingPrefs.style,
+        styleInstruction: getStyleInstruction(),
         recentTurns: recentTurns.slice(-8),
         lightMemory: lightMemory.slice(-3)
     });
@@ -912,7 +1026,9 @@ async function sendMessage() {
 
     // Background: dissolve the canvas entity + save echo
     universe.defuseEntity(entity.id, 120);
-    storage.saveEcho(universe.toEcho(entity.id));
+    if (onboardingPrefs.memory !== 'private') {
+        storage.saveEcho(universe.toEcho(entity.id));
+    }
 
     isProcessing = false;
     dumpContainer.classList.remove('is-processing');
@@ -1019,17 +1135,39 @@ homeIntentions?.addEventListener('click', (e) => {
     chooseIntention(chip.dataset.intention);
 });
 
+onboardingOptions?.forEach((option) => {
+    option.addEventListener('click', () => {
+        const pref = option.dataset.pref;
+        const value = option.dataset.value;
+        if (!pref || !value) return;
+        onboardingPrefs[pref] = value;
+        renderOnboarding();
+    });
+});
+
+onboardingSkip?.addEventListener('click', () => {
+    saveOnboardingPrefs(true);
+    startAppFromHome();
+});
+
+onboardingNext?.addEventListener('click', () => {
+    if (onboardingStep < onboardingSteps.length - 1) {
+        onboardingStep += 1;
+        renderOnboarding();
+        return;
+    }
+    saveOnboardingPrefs(true);
+    startAppFromHome();
+});
+
 // ─── Home CTA ─────────────────────────────────────────────────
 
 homeCTA?.addEventListener('click', () => {
-    const intention = INTENTION_COPY[selectedIntention] || INTENTION_COPY.vent;
-    setEmotionalState(intention.emotion, intention.intensity);
-    homeScreen.classList.add('fade-out');
-    setTimeout(() => {
-        homeScreen.classList.add('hidden');
-        jigriApp.classList.remove('hidden');
-        init();
-    }, 540);
+    if (onboardingPrefs.completed) {
+        startAppFromHome();
+        return;
+    }
+    openOnboarding();
 });
 
 mainCanvas?.addEventListener('contextmenu', (e) => e.preventDefault());
@@ -1037,4 +1175,6 @@ mainCanvas?.addEventListener('contextmenu', (e) => e.preventDefault());
 createHomeStars();
 initKeyboardSafeLayout();
 initHomeParallax();
+loadOnboardingPrefs();
+renderOnboarding();
 chooseIntention(selectedIntention);
