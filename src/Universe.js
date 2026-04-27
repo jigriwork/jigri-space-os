@@ -41,6 +41,14 @@ export class Universe {
 
         this.entities = [];
         this.stars = [];
+        this.ripples = [];
+        this.weather = {
+            emotion: 'calm',
+            intensity: 0.3,
+            targetIntensity: 0.3,
+            hue: 150,
+            targetHue: 150
+        };
 
         this._resize();
         this._initStars();
@@ -90,8 +98,32 @@ export class Universe {
         return colors[emotion] || { h: 34, s: 80, l: 55 };
     }
 
+    setEmotionalWeather(emotion = 'calm', intensity = 0.35) {
+        const c = this._emotionColor(emotion);
+        this.weather.emotion = emotion;
+        this.weather.targetIntensity = Math.max(0.2, Math.min(1, intensity));
+        this.weather.targetHue = c.h;
+    }
+
+    addRipple({ emotion = 'calm', intensity = 0.35 } = {}) {
+        const c = this._emotionColor(emotion);
+        this.ripples.push({
+            x: this.width * (0.46 + (Math.random() - 0.5) * 0.16),
+            y: this.height * (0.44 + (Math.random() - 0.5) * 0.12),
+            radius: 18,
+            maxRadius: Math.min(this.width, this.height) * (0.34 + intensity * 0.18),
+            alpha: 0.42,
+            hue: c.h,
+            width: 1 + intensity * 2.2
+        });
+        if (this.ripples.length > 8) this.ripples.shift();
+    }
+
     _renderBackground() {
         const ctx = this.bgCtx;
+        this.weather.intensity += (this.weather.targetIntensity - this.weather.intensity) * 0.025;
+        this.weather.hue += (this.weather.targetHue - this.weather.hue) * 0.025;
+        const weatherGlow = 0.035 + this.weather.intensity * 0.055;
         const grad = ctx.createRadialGradient(
             this.width * 0.5,
             this.height * 0.45,
@@ -100,19 +132,20 @@ export class Universe {
             this.height * 0.5,
             Math.max(this.width, this.height) * 0.75
         );
-        grad.addColorStop(0, 'rgba(16, 20, 40, 1)');
+        grad.addColorStop(0, `hsla(${this.weather.hue}, 38%, 13%, 1)`);
+        grad.addColorStop(0.48, 'rgba(7, 10, 24, 1)');
         grad.addColorStop(1, 'rgba(3, 5, 12, 1)');
         ctx.fillStyle = grad;
         ctx.fillRect(0, 0, this.width, this.height);
 
-        // Aurora Waves (Subtle)
+        // Aurora waves become the emotional weather of the room.
         ctx.save();
         ctx.globalCompositeOperation = 'screen';
         const wave1 = Math.sin(this.time * 0.002) * 50;
         const wave2 = Math.cos(this.time * 0.003) * 50;
         const aurora = ctx.createLinearGradient(0, 0, this.width, this.height);
-        aurora.addColorStop(0, `rgba(182, 140, 255, ${0.02 + Math.sin(this.time * 0.01)*0.01})`);
-        aurora.addColorStop(0.5, `rgba(138, 255, 204, ${0.015 + Math.cos(this.time * 0.008)*0.01})`);
+        aurora.addColorStop(0, `hsla(${this.weather.hue}, 88%, 70%, ${weatherGlow + Math.sin(this.time * 0.01) * 0.012})`);
+        aurora.addColorStop(0.5, `rgba(138, 255, 204, ${0.018 + Math.cos(this.time * 0.008) * 0.012})`);
         aurora.addColorStop(1, 'rgba(255, 126, 168, 0.01)');
         ctx.fillStyle = aurora;
         ctx.beginPath();
@@ -185,6 +218,32 @@ export class Universe {
             ctx.lineWidth = 1.5;
             ctx.stroke();
         }
+    }
+
+    _renderRipples() {
+        const ctx = this.fxCtx;
+        ctx.save();
+        ctx.globalCompositeOperation = 'screen';
+        for (let i = this.ripples.length - 1; i >= 0; i--) {
+            const r = this.ripples[i];
+            r.radius += (r.maxRadius - r.radius) * 0.025 + 1.4;
+            r.alpha *= 0.975;
+
+            const grad = ctx.createRadialGradient(r.x, r.y, Math.max(1, r.radius * 0.2), r.x, r.y, r.radius);
+            grad.addColorStop(0, `hsla(${r.hue}, 90%, 74%, 0)`);
+            grad.addColorStop(0.72, `hsla(${r.hue}, 90%, 70%, ${r.alpha * 0.18})`);
+            grad.addColorStop(1, `hsla(${r.hue}, 90%, 70%, 0)`);
+            ctx.strokeStyle = grad;
+            ctx.lineWidth = r.width;
+            ctx.beginPath();
+            ctx.arc(r.x, r.y, r.radius, 0, Math.PI * 2);
+            ctx.stroke();
+
+            if (r.alpha < 0.018 || r.radius > r.maxRadius + 16) {
+                this.ripples.splice(i, 1);
+            }
+        }
+        ctx.restore();
     }
 
     _applyBehavior(entity) {
@@ -283,6 +342,7 @@ export class Universe {
     _renderOverlay() {
         const ctx = this.fxCtx;
         ctx.clearRect(0, 0, this.width, this.height);
+        this._renderRipples();
         const vignette = ctx.createRadialGradient(
             this.width * 0.5,
             this.height * 0.5,

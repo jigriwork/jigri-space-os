@@ -23,10 +23,28 @@
   <section id="home-screen">
     <div id="home-stars" aria-hidden="true"></div>
     <div class="home-orb" aria-hidden="true"></div>
+    <div class="home-aurora" aria-hidden="true"></div>
+    <div class="home-rings" aria-hidden="true">
+      <span></span>
+      <span></span>
+      <span></span>
+    </div>
     <div id="home-content">
-      <h1>You don't have to figure it out alone.</h1>
-      <h2>Jigri is here, whenever you need.</h2>
-      <p>A private space to speak freely. No judgment, no script. Just a warm presence that listens.</p>
+      <div id="home-sigil" aria-hidden="true">
+        <span></span>
+        <span></span>
+        <span></span>
+        <strong>J</strong>
+      </div>
+      <h1>Jigri</h1>
+      <h2>Your private sky for the thoughts you cannot say out loud.</h2>
+      <p>Vent, breathe, untangle, or celebrate. Jigri listens like a close friend and turns what you feel into a living calm space.</p>
+      <div id="home-intentions" aria-label="Choose the kind of space you need">
+        <button class="intention-chip active" type="button" data-intention="vent">Vent</button>
+        <button class="intention-chip" type="button" data-intention="breathe">Breathe</button>
+        <button class="intention-chip" type="button" data-intention="think">Think</button>
+        <button class="intention-chip" type="button" data-intention="celebrate">Celebrate</button>
+      </div>
       <button id="home-cta" aria-label="Open Jigri">Start talking</button>
     </div>
   </section>
@@ -44,10 +62,26 @@
       <p>your private space to speak freely</p>
     </header>
 
+    <aside id="presence-panel" aria-live="polite">
+      <div class="presence-orb" aria-hidden="true">
+        <span></span>
+      </div>
+      <div>
+        <span id="presence-kicker">Jigri is here</span>
+        <strong id="presence-state">listening softly</strong>
+      </div>
+    </aside>
+
     <main id="dump-container">
-      <textarea id="dump-input" placeholder="Reply to Jigri..." spellcheck="false" autocomplete="off"></textarea>
+      <div id="input-aura" aria-hidden="true"></div>
+      <textarea id="dump-input" placeholder="Reply to Jigri..." spellcheck="false" autocomplete="off" rows="1"></textarea>
       <button id="dump-release" aria-label="Send message">
         <span>Send</span>
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+          stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="m22 2-7 20-4-9-9-4Z" />
+          <path d="M22 2 11 13" />
+        </svg>
       </button>
     </main>
 
@@ -71,16 +105,75 @@
     </section>
 
     <aside id="controls-panel">
-      <button id="btn-music" class="ctrl-btn active" title="Toggle Music" aria-label="Toggle music">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M9 18V5l12-2v13" />
-          <circle cx="6" cy="18" r="3" />
-          <circle cx="18" cy="16" r="3" />
-        </svg>
+      <button id="btn-menu" class="ctrl-btn menu-btn" title="Menu" aria-label="Open menu" aria-expanded="false">
+        ☰
       </button>
-      <button id="btn-volume" class="ctrl-btn" title="Cycle Volume" aria-label="Cycle volume">VOL</button>
-      <button id="btn-mode" class="ctrl-btn" title="Change Music Mode" aria-label="Change music mode">MODE</button>
+      <div id="controls-drawer">
+        <button id="btn-home" class="ctrl-btn" title="Home" aria-label="Go back to home">⌂</button>
+        <button id="btn-mood" class="ctrl-btn" title="Change Mood" aria-label="Change mood">MOOD</button>
+        <button id="btn-music" class="ctrl-btn active" title="Toggle Music" aria-label="Toggle music">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M9 18V5l12-2v13" />
+            <circle cx="6" cy="18" r="3" />
+            <circle cx="18" cy="16" r="3" />
+          </svg>
+        </button>
+        <button id="btn-volume" class="ctrl-btn" title="Cycle Volume" aria-label="Cycle volume">VOL</button>
+        <button id="btn-mode" class="ctrl-btn" title="Change Music Mode" aria-label="Change music mode">MODE</button>
+        <button id="btn-ritual" class="ctrl-btn" title="Release Sparks" aria-label="Open release sparks ritual">✦</button>
+      </div>
     </aside>
+
+    <div id="memory-constellation" aria-hidden="true">
+      <span></span><span></span><span></span><span></span><span></span>
+    </div>
+
+    <section id="ritual-panel" class="hidden" aria-live="polite">
+      <div id="ritual-card">
+        <button id="ritual-close" type="button" aria-label="Close release ritual">×</button>
+        <span id="ritual-kicker">release sparks</span>
+        <h2>Tap what feels heavy.</h2>
+        <p id="ritual-subtitle">No score. Just a few tiny releases.</p>
+        <div id="ritual-tabs" aria-label="Choose a release ritual">
+          <button class="ritual-tab active" type="button" data-ritual="sparks">Sparks</button>
+          <button class="ritual-tab" type="button" data-ritual="orbit">Orbit</button>
+          <button class="ritual-tab" type="button" data-ritual="threads">Threads</button>
+          <button class="ritual-tab" type="button" data-ritual="flame">Flame</button>
+          <button class="ritual-tab" type="button" data-ritual="flow">Flow</button>
+          <button class="ritual-tab" type="button" data-ritual="balance">Balance</button>
+        </div>
+        <div id="spark-field" aria-label="Tap the sparks to release tension"></div>
+        <div id="ritual-progress">
+          <span id="ritual-progress-fill"></span>
+        </div>
+      </div>
+    </section>
+
+    <section id="mood-panel" class="hidden" aria-live="polite">
+      <div id="mood-card">
+        <button id="mood-close" type="button" aria-label="Close mood switcher">×</button>
+        <span id="mood-kicker">switch space</span>
+        <h2>What kind of room do you need now?</h2>
+        <div id="mood-options">
+          <button class="mood-option" type="button" data-intention="vent">
+            <strong>Vent</strong>
+            <span>Let the pressure speak.</span>
+          </button>
+          <button class="mood-option" type="button" data-intention="breathe">
+            <strong>Breathe</strong>
+            <span>Slow the room down.</span>
+          </button>
+          <button class="mood-option" type="button" data-intention="think">
+            <strong>Think</strong>
+            <span>Untangle one thread.</span>
+          </button>
+          <button class="mood-option" type="button" data-intention="celebrate">
+            <strong>Celebrate</strong>
+            <span>Hold the good part.</span>
+          </button>
+        </div>
+      </div>
+    </section>
 
     <!-- Auth Modal — in-app, dark cosmic, no browser prompts -->
     <div id="auth-overlay" class="hidden" aria-modal="true" role="dialog" aria-label="Continue with Jigri">
